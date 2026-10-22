@@ -18,7 +18,7 @@ function load(): Sequence {
     if (o && Array.isArray(o.blocks)) {
       const blocks = o.blocks.filter((b: { assetId?: string; seconds?: number }) => b && ASSET_BY_ID[b.assetId ?? ''] && Number.isFinite(b.seconds))
         .map((b: { id: string; assetId: string; seconds: number }) => ({ id: String(b.id), assetId: b.assetId, seconds: Math.min(60, Math.max(0.1, b.seconds)) }));
-      return { blocks, blend: Number.isFinite(o.blend) ? Math.min(1200, Math.max(0, o.blend)) : 450, eyeColor: o.bg === undefined ? '#FFFFFF' : hex(o.eyeColor, '#FFFFFF'), bg: hex(o.bg, '#000000'), mode: ['freeform', 'halftone', 'halftoneGrid'].includes(o.mode) ? o.mode : 'matrix', shape: o.shape === 'long' ? 'long' : 'round', spacing: Number.isFinite(o.spacing) ? Math.min(250, Math.max(30, o.spacing)) : 115, custom: o.custom && isValidPattern(o.custom.left) && isValidPattern(o.custom.right) ? { left: o.custom.left, right: o.custom.right } : null, useCustom: o.useCustom === true && !!o.custom, glow: Number.isFinite(o.glow) ? Math.min(250, Math.max(0, o.glow)) : 100 };
+      return { blocks, blend: Number.isFinite(o.blend) ? Math.min(1200, Math.max(0, o.blend)) : 450, eyeColor: o.bg === undefined ? '#FFFFFF' : hex(o.eyeColor, '#FFFFFF'), bg: hex(o.bg, '#000000'), mode: ['freeform', 'halftone', 'halftoneGrid'].includes(o.mode) ? o.mode : 'matrix', shape: o.shape === 'long' ? 'long' : 'round', spacing: Number.isFinite(o.spacing) ? Math.min(250, Math.max(30, o.spacing)) : 115, custom: o.custom && isValidPattern(o.custom.left) && isValidPattern(o.custom.right) ? { left: o.custom.left, right: o.custom.right } : null, useCustom: o.useCustom === true && !!o.custom, glow: Number.isFinite(o.glow) ? Math.min(250, Math.max(0, o.glow)) : 100, roundness: Number.isFinite(o.roundness) ? Math.min(100, Math.max(0, o.roundness)) : 100 };
     }
   } catch { /* fall through */ }
   return defaultSequence();
@@ -42,7 +42,7 @@ function Thumb({ asset, base, aspect }: { asset: Asset; base: Sequence; aspect: 
     const W = 120, H = Math.round(120 / aspect), dpr = 2;
     c.width = W * dpr; c.height = H * dpr;
     const ctx = c.getContext('2d')!;
-    const seq: Sequence = { blocks: [newBlock('mood-default'), { id: 'x', assetId: asset.id, seconds: asset.seconds }], blend: 300, eyeColor, bg, mode, shape, spacing: 115, custom, useCustom, glow: base.glow };
+    const seq: Sequence = { blocks: [newBlock('mood-default'), { id: 'x', assetId: asset.id, seconds: asset.seconds }], blend: 300, eyeColor, bg, mode, shape, spacing: 115, custom, useCustom, glow: base.glow, roundness: base.roundness };
     const p = buildProject(seq);
     p.shared.autoBlink = false; p.shared.idle = false; p.shared.microSaccade = 0;
     const from = 3000 - 500, span = 500 + Math.min(asset.seconds * 1000, 3200) + 400;
@@ -51,7 +51,7 @@ function Thumb({ asset, base, aspect }: { asset: Asset; base: Sequence; aspect: 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       drawAt(ctx, W, H, p, from + ((now + offset) % span), bg, true);
     });
-  }, [asset, mode, eyeColor, bg, shape, custom, useCustom, aspect, base.glow]);
+  }, [asset, mode, eyeColor, bg, shape, custom, useCustom, aspect, base.glow, base.roundness]);
   return <canvas ref={ref} className="thumb" style={{ aspectRatio: String(aspect) }} />;
 }
 
@@ -145,7 +145,7 @@ export function App() {
     if (!preview) return null;
     const p = buildProject({ ...seq, blocks: [{ id: 'pv', assetId: preview.id, seconds: preview.seconds }] });
     return p;
-  }, [preview, seq.eyeColor, seq.mode, seq.blend, seq.shape, seq.spacing, seq.custom, seq.useCustom, seq.glow]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [preview, seq.eyeColor, seq.mode, seq.blend, seq.shape, seq.spacing, seq.custom, seq.useCustom, seq.glow, seq.roundness]); // eslint-disable-line react-hooks/exhaustive-deps
   const pvRef = useRef<{ project: ReturnType<typeof buildProject> | null; t: number }>({ project: null, t: 0 });
   if (pvRef.current.project !== previewProject) pvRef.current = { project: previewProject, t: 0 };
   const bgRef = useRef(seq.bg);
@@ -456,6 +456,10 @@ export function App() {
             <input type="range" min={30} max={250} step={5} value={seq.spacing} onChange={(e) => update((s) => ({ ...s, spacing: Number(e.target.value) }))} />
             <span className="val">{seq.spacing}%</span>
           </label>
+          <label className="slider" title="모서리 둥글기 — 0% 네모 · 100% 완전히 둥글게 (LED는 네모/둥근 두 단계)">모서리 둥글기
+            <input type="range" min={0} max={100} step={5} value={seq.roundness} onChange={(e) => update((s) => ({ ...s, roundness: Number(e.target.value) }))} />
+            <span className="val">{seq.roundness}%</span>
+          </label>
           <label className="slider" title="빛이 번지는 정도">빛 번짐
             <input type="range" min={0} max={250} step={5} value={seq.glow} onChange={(e) => update((s) => ({ ...s, glow: Number(e.target.value) }))} />
             <span className="val">{seq.glow}%</span>
@@ -519,7 +523,7 @@ export function App() {
           ) : <span className="hint">빈 곳을 드래그 = 여러 개 선택 · 블록 드래그 = 이동 · 양쪽 끝 = 길이 · 위/아래로 멀리 놓기 = 삭제</span>}
           <span className="grow" />
           {!empty && <button className="ghost" onClick={() => { if (confirm('모든 블록을 지울까요?')) { update((s) => ({ ...s, blocks: [] })); setSelected(null); } }}>전체 지우기</button>}
-          <button className="ghost" onClick={() => { update((s) => ({ ...defaultSequence(), eyeColor: s.eyeColor, bg: s.bg, mode: s.mode, shape: s.shape, custom: s.custom, useCustom: s.useCustom, glow: s.glow, spacing: s.spacing })); setSelected(null); }}>예시 불러오기</button>
+          <button className="ghost" onClick={() => { update((s) => ({ ...defaultSequence(), eyeColor: s.eyeColor, bg: s.bg, mode: s.mode, shape: s.shape, custom: s.custom, useCustom: s.useCustom, glow: s.glow, spacing: s.spacing, roundness: s.roundness })); setSelected(null); }}>예시 불러오기</button>
         </div>
       </footer>
 

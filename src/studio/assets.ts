@@ -65,13 +65,13 @@ export const ASSET_BY_ID = Object.fromEntries(ASSETS.map((a) => [a.id, a]));
 
 export interface Block { id: string; assetId: string; seconds: number }
 export type Style = 'matrix' | 'freeform' | 'halftone' | 'halftoneGrid';
-export interface Sequence { blocks: Block[]; blend: number; eyeColor: string; bg: string; mode: Style; shape: 'round' | 'long'; spacing: number; custom: { left: string[]; right: string[] } | null; useCustom: boolean; glow: number }
+export interface Sequence { blocks: Block[]; blend: number; eyeColor: string; bg: string; mode: Style; shape: 'round' | 'long'; spacing: number; custom: { left: string[]; right: string[] } | null; useCustom: boolean; glow: number; roundness: number }
 
 export const newBlock = (assetId: string): Block => ({ id: uid('b'), assetId, seconds: ASSET_BY_ID[assetId]?.seconds ?? 2 });
 
 export const defaultSequence = (): Sequence => ({
   blocks: ['mo-wakeUp', 'mo-gentleGreeting', 'mood-calm', 'mo-curiousInspection', 'mo-passengerAttention', 'mo-reassuringBlink', 'mood-default'].map(newBlock),
-  blend: 450, eyeColor: '#FFFFFF', bg: '#000000', mode: 'matrix', shape: 'round', spacing: 115, custom: null, useCustom: false, glow: 100,
+  blend: 450, eyeColor: '#FFFFFF', bg: '#000000', mode: 'matrix', shape: 'round', spacing: 115, custom: null, useCustom: false, glow: 100, roundness: 100,
 });
 
 export const totalMs = (s: Sequence) => Math.max(500, Math.round(s.blocks.reduce((a, b) => a + b.seconds * 1000, 0)));
@@ -134,10 +134,14 @@ export function buildProject(seq: Sequence): Project {
     // tall pill eyes
     const m = p.matrix.geometry; m.leftW = 3; m.rightW = 3; m.eyeH = 5; m.corner = 1;
     const f = p.freeform.geometry; f.widthL = f.widthR = 160; f.heightL = f.heightR = 250; f.cornerRadius = 0.62; f.spacing = 180;
-    // dot-curve style: a perfectly round 1:2 pill
-    if (seq.mode === 'halftone') { f.stadium = true; f.widthL = f.widthR = 130; f.heightL = f.heightR = 260; f.spacing = 190; }
+    // dot-curve style: exact 1:2 pill proportions
+    if (seq.mode === 'halftone') { f.widthL = f.widthR = 130; f.heightL = f.heightR = 260; f.spacing = 190; }
   }
   if (seq.useCustom && seq.custom) { p.matrix.geometry.customL = seq.custom.left; p.matrix.geometry.customR = seq.custom.right; }
+  // corner roundness: freeform-like styles use an exact rounded rectangle; LED matrix has square / softened corners
+  const rnd = (seq.roundness ?? 100) / 100;
+  p.freeform.geometry.roundness = rnd;
+  p.matrix.geometry.corner = rnd >= 0.35 ? 1 : 0;
   // eye spacing: percentage of the default (freeform: eye spacing, matrix: physical gap between the two modules)
   const k = (seq.spacing ?? 100) / 100;
   p.freeform.geometry.spacing *= k;

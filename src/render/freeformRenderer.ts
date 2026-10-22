@@ -39,15 +39,27 @@ function superEllipseAnchors(cornerRadius: number): [number, number][] {
   return pts;
 }
 
-/** Exact pill outline in unit space: semicircular caps (radius 1 in x, `ry` in y) joined by straight sides. */
-function stadiumDense(ry: number): [number, number][] {
+/**
+ * Exact rounded-rectangle outline in unit space (box -1..1). `rx`/`ry` are the corner radii in unit coordinates
+ * (0 = square corner, 1 = semicircular end). With rx = ry·(halfH/halfW) the corners are circular on screen.
+ */
+function roundRectDense(rx: number, ry: number): [number, number][] {
   const pts: [number, number][] = [];
-  const cy = Math.max(0, 1 - ry);
-  const N = 56;
-  for (let i = 0; i < N; i++) { const a = Math.PI + (Math.PI * i) / N; pts.push([Math.cos(a), -cy + ry * Math.sin(a)]); }
-  for (let i = 0; i < 24; i++) pts.push([1, -cy + (2 * cy * i) / 24]);
-  for (let i = 0; i < N; i++) { const a = (Math.PI * i) / N; pts.push([Math.cos(a), cy + ry * Math.sin(a)]); }
-  for (let i = 0; i < 24; i++) pts.push([-1, cy - (2 * cy * i) / 24]);
+  const cx = 1 - rx, cy = 1 - ry;
+  const arc = (ox: number, oy: number, a0: number, n: number) => {
+    if (rx < 0.002 || ry < 0.002) { pts.push([ox + Math.sign(ox) * rx, oy + Math.sign(oy) * ry]); return; }
+    for (let i = 0; i < n; i++) { const a = a0 + ((Math.PI / 2) * i) / n; pts.push([ox + Math.cos(a) * rx, oy + Math.sin(a) * ry]); }
+  };
+  const side = (x0: number, y0: number, x1: number, y1: number, n: number) => { for (let i = 0; i < n; i++) pts.push([x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n]); };
+  const N = 28;
+  arc(-cx, -cy, Math.PI, N);           // top-left
+  side(-cx, -1, cx, -1, 18);           // top edge
+  arc(cx, -cy, Math.PI * 1.5, N);      // top-right
+  side(1, -cy, 1, cy, 22);             // right edge
+  arc(cx, cy, 0, N);                   // bottom-right
+  side(cx, 1, -cx, 1, 18);             // bottom edge
+  arc(-cx, cy, Math.PI / 2, N);        // bottom-left
+  side(-1, cy, -1, -cy, 22);           // left edge
   return pts;
 }
 
@@ -146,7 +158,12 @@ export function buildEye(side: Side, f: EyeFrame, g: FreeformGeometry): EyeGeome
   const rot = ((g.rotation + sgn * (g.tilt * 22 + f.shape.tilt * 18)) * Math.PI) / 180;
   const tf: EyeTransform = { cx, cy, rot, halfW: w / 2, halfH: h / 2, curv: g.curvature };
 
-  const dense = g.stadium ? stadiumDense(clamp(w / h, 0.05, 1)) : catmullDense(unit);
+  const rr = g.roundness;
+  let dense: [number, number][];
+  if (rr !== undefined) {
+    const rpx = clamp01(rr) * Math.min(w, h) / 2; // corner radius in px
+    dense = roundRectDense(clamp(rpx / (w / 2), 0, 1), clamp(rpx / (h / 2), 0, 1));
+  } else dense = catmullDense(unit);
   const closure = isL ? f.closureL : f.closureR;
   const o = clamp01(f.openness);
   const closeAmt = 1 - o * (1 - closure);
@@ -177,7 +194,9 @@ export function buildEye(side: Side, f: EyeFrame, g: FreeformGeometry): EyeGeome
     collapsed = false;
     return [ux, clamp(uy, t, b)] as [number, number];
   });
-  let poly = roundCorners(smooth(clipped, 3), ROUND_ITERS);
+  // sharp-cornered eyes (low roundness) keep their corners; lid/outline intersections still get rounded otherwise
+  const soften = rr === undefined ? 1 : Math.min(1, clamp01(rr) * 4);
+  let poly = soften < 0.05 ? clipped : roundCorners(smooth(clipped, 3), Math.round(ROUND_ITERS * soften));
   if (collapsed || closeAmt > 0.985) {
     // fully closed → thin rounded line
     const minU = Math.min(...dense.map((p) => p[0])), maxU = Math.max(...dense.map((p) => p[0]));

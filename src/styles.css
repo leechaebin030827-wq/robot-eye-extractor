@@ -226,3 +226,4 @@ button.primary.export:hover:not(:disabled) { background: #fff; filter: brightnes
 .pop b { font-size: 13px; color: var(--text); }
 .pop small { color: var(--muted); font-size: 11.5px; white-space: normal; }
 .seg button.on .lbl { max-width: 150px; }
+.transport { flex-wrap: wrap; overflow: visible; row-gap: 6px; }

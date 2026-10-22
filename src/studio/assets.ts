@@ -45,7 +45,7 @@ export const ASSETS: Asset[] = [
   move('blink', '깜빡임'), move('doubleBlink', '두 번 깜빡'), move('tripleBlink', '연속 깜빡'), move('closeEyes', '눈 감기'),
   move('sleepyBlink', '졸린 깜빡임', '동작', 'sleepy'), move('reassuringBlink', '안심 깜빡임', '동작', 'reassuring'),
   move('winkLeft', '윙크 ◀'), move('winkRight', '윙크 ▶'), move('happyWink', '웃으며 윙크', '동작', 'happy'),
-  move('passengerAttention', '승객 주목 ▶', '동작', 'attentive'), move('passengerAttention', '승객 주목 ◀', '동작', 'attentive', { dirX: -1 }),
+  move('passengerAttention', '대상 주목 ▶', '동작', 'attentive'), move('passengerAttention', '대상 주목 ◀', '동작', 'attentive', { dirX: -1 }),
   // ── 시선 ──
   move('lookLeft', '왼쪽 보기', '시선'), move('lookRight', '오른쪽 보기', '시선'), move('lookUp', '위 보기', '시선'), move('lookDown', '아래 보기', '시선'),
   move('upLeft', '왼쪽 위 보기', '시선'), move('upRight', '오른쪽 위 보기', '시선'), move('downLeft', '왼쪽 아래 보기', '시선'), move('downRight', '오른쪽 아래 보기', '시선'),
@@ -64,13 +64,13 @@ ASSETS.push(
 export const ASSET_BY_ID = Object.fromEntries(ASSETS.map((a) => [a.id, a]));
 
 export interface Block { id: string; assetId: string; seconds: number }
-export interface Sequence { blocks: Block[]; blend: number; eyeColor: string; bg: string; mode: Mode; shape: 'round' | 'long'; spacing: number; custom: { left: string[]; right: string[] } | null; useCustom: boolean }
+export interface Sequence { blocks: Block[]; blend: number; eyeColor: string; bg: string; mode: Mode; shape: 'round' | 'long'; spacing: number; custom: { left: string[]; right: string[] } | null; useCustom: boolean; glow: number }
 
 export const newBlock = (assetId: string): Block => ({ id: uid('b'), assetId, seconds: ASSET_BY_ID[assetId]?.seconds ?? 2 });
 
 export const defaultSequence = (): Sequence => ({
   blocks: ['mo-wakeUp', 'mo-gentleGreeting', 'mood-calm', 'mo-curiousInspection', 'mo-passengerAttention', 'mo-reassuringBlink', 'mood-default'].map(newBlock),
-  blend: 450, eyeColor: '#FFFFFF', bg: '#000000', mode: 'matrix', shape: 'round', spacing: 115, custom: null, useCustom: false,
+  blend: 450, eyeColor: '#FFFFFF', bg: '#000000', mode: 'matrix', shape: 'round', spacing: 115, custom: null, useCustom: false, glow: 100,
 });
 
 export const totalMs = (s: Sequence) => Math.max(500, Math.round(s.blocks.reduce((a, b) => a + b.seconds * 1000, 0)));
@@ -110,7 +110,7 @@ export function compile(seq: Sequence): Timeline {
 
 /** The still default eye of a preset shape as two 8×8 patterns (starting point for the custom eye editor). */
 export function presetEyePattern(shape: 'round' | 'long'): { left: string[]; right: string[] } {
-  const p = buildProject({ ...defaultSequence(), blocks: [], shape, useCustom: false, custom: null, mode: 'matrix' });
+  const p = buildProject({ ...defaultSequence(), blocks: [], shape, useCustom: false, custom: null, mode: 'matrix', glow: 100 });
   const f = evaluateEye(p, 0, 'matrix');
   const mf = generateMatrixFrame(f, p.matrix.geometry);
   return { left: gridToPattern(mf.left), right: gridToPattern(mf.right) };
@@ -124,6 +124,9 @@ export function buildProject(seq: Sequence): Project {
   p.matrix.physical.dimensions = false;
   p.matrix.physical.gridVisible = true;
   p.freeform.geometry.eyeColor = seq.eyeColor;
+  const glow = (seq.glow ?? 100) / 100;
+  p.matrix.physical.glow = glow;
+  p.freeform.geometry.glow = Math.min(1.5, 0.45 * glow);
   if (seq.shape === 'long') {
     // tall pill eyes
     const m = p.matrix.geometry; m.leftW = 3; m.rightW = 3; m.eyeH = 5; m.corner = 1;

@@ -87,6 +87,7 @@ export interface MatrixPhysical {
   orientationL: 0 | 90 | 180 | 270;
   orientationR: 0 | 90 | 180 | 270;
   ledColor: string;
+  glow?: number; // light bloom multiplier (1 = default)
   frameVisible: boolean;
   gridVisible: boolean;
   dimensions: boolean;

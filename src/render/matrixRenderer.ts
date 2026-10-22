@@ -243,7 +243,7 @@ export function drawMatrix(ctx: CanvasRenderingContext2D, W: number, H: number, 
         const lit = grids[m][r][c];
         if (!lit && v.compact) continue; // lights-only: unlit LEDs are fully transparent
         if (lit) {
-          ctx.shadowColor = phys.ledColor; ctx.shadowBlur = ledR * 1.4 * mf.brightness; ctx.fillStyle = on;
+          ctx.shadowColor = phys.ledColor; ctx.shadowBlur = ledR * 1.4 * mf.brightness * (phys.glow ?? 1); ctx.fillStyle = on;
         } else {
           ctx.shadowBlur = 0; ctx.fillStyle = '#171b21';
         }
@@ -253,13 +253,13 @@ export function drawMatrix(ctx: CanvasRenderingContext2D, W: number, H: number, 
         if (!lit) { ctx.strokeStyle = '#242a32'; ctx.lineWidth = 1; if (phys.ledShape === 'round') { ctx.beginPath(); ctx.arc(px, py, ledR, 0, Math.PI * 2); ctx.stroke(); } }
       }
     }
-    if (!v.compact) ctx.fillStyle = '#6b7684'; ctx.font = '10px ui-monospace, monospace'; ctx.textAlign = 'center';
+    if (!v.compact) ctx.fillStyle = '#6b7684'; ctx.font = '10px "Google Sans Flex", sans-serif'; ctx.textAlign = 'center';
     if (!v.compact) ctx.fillText(m === 0 ? 'LEFT 8×8' : 'RIGHT 8×8', mx + mw / 2, my + mh + 14);
   }
 
   if (phys.dimensions) {
     ctx.strokeStyle = 'rgba(215,240,128,0.85)'; ctx.fillStyle = 'rgba(215,240,128,0.95)';
-    ctx.lineWidth = 1; ctx.font = '11px ui-monospace, monospace'; ctx.textAlign = 'center';
+    ctx.lineWidth = 1; ctx.font = '11px "Google Sans Flex", sans-serif'; ctx.textAlign = 'center';
     const topY = L.modY - 16;
     arrowH(ctx, gapX, gapX + gapW, topY);
     ctx.fillText(`gap ${phys.gap.toFixed(1)} mm`, gapX + gapW / 2, topY - 6);

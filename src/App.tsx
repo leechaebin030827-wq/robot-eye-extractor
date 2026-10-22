@@ -18,7 +18,7 @@ function load(): Sequence {
     if (o && Array.isArray(o.blocks)) {
       const blocks = o.blocks.filter((b: { assetId?: string; seconds?: number }) => b && ASSET_BY_ID[b.assetId ?? ''] && Number.isFinite(b.seconds))
         .map((b: { id: string; assetId: string; seconds: number }) => ({ id: String(b.id), assetId: b.assetId, seconds: Math.min(60, Math.max(0.1, b.seconds)) }));
-      return { blocks, blend: Number.isFinite(o.blend) ? Math.min(1200, Math.max(0, o.blend)) : 450, eyeColor: o.bg === undefined ? '#FFFFFF' : hex(o.eyeColor, '#FFFFFF'), bg: hex(o.bg, '#000000'), mode: o.mode === 'freeform' ? 'freeform' : 'matrix', shape: o.shape === 'long' ? 'long' : 'round', spacing: Number.isFinite(o.spacing) ? Math.min(250, Math.max(30, o.spacing)) : 115, custom: o.custom && isValidPattern(o.custom.left) && isValidPattern(o.custom.right) ? { left: o.custom.left, right: o.custom.right } : null, useCustom: o.useCustom === true && !!o.custom };
+      return { blocks, blend: Number.isFinite(o.blend) ? Math.min(1200, Math.max(0, o.blend)) : 450, eyeColor: o.bg === undefined ? '#FFFFFF' : hex(o.eyeColor, '#FFFFFF'), bg: hex(o.bg, '#000000'), mode: o.mode === 'freeform' ? 'freeform' : 'matrix', shape: o.shape === 'long' ? 'long' : 'round', spacing: Number.isFinite(o.spacing) ? Math.min(250, Math.max(30, o.spacing)) : 115, custom: o.custom && isValidPattern(o.custom.left) && isValidPattern(o.custom.right) ? { left: o.custom.left, right: o.custom.right } : null, useCustom: o.useCustom === true && !!o.custom, glow: Number.isFinite(o.glow) ? Math.min(250, Math.max(0, o.glow)) : 100 };
     }
   } catch { /* fall through */ }
   return defaultSequence();
@@ -42,7 +42,7 @@ function Thumb({ asset, base, aspect }: { asset: Asset; base: Sequence; aspect: 
     const W = 120, H = Math.round(120 / aspect), dpr = 2;
     c.width = W * dpr; c.height = H * dpr;
     const ctx = c.getContext('2d')!;
-    const seq: Sequence = { blocks: [newBlock('mood-default'), { id: 'x', assetId: asset.id, seconds: asset.seconds }], blend: 300, eyeColor, bg, mode, shape, spacing: 115, custom, useCustom };
+    const seq: Sequence = { blocks: [newBlock('mood-default'), { id: 'x', assetId: asset.id, seconds: asset.seconds }], blend: 300, eyeColor, bg, mode, shape, spacing: 115, custom, useCustom, glow: base.glow };
     const p = buildProject(seq);
     p.shared.autoBlink = false; p.shared.idle = false; p.shared.microSaccade = 0;
     const from = 3000 - 500, span = 500 + Math.min(asset.seconds * 1000, 3200) + 400;
@@ -51,21 +51,27 @@ function Thumb({ asset, base, aspect }: { asset: Asset; base: Sequence; aspect: 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       drawAt(ctx, W, H, p, from + ((now + offset) % span), bg, true);
     });
-  }, [asset, mode, eyeColor, bg, shape, custom, useCustom, aspect]);
+  }, [asset, mode, eyeColor, bg, shape, custom, useCustom, aspect, base.glow]);
   return <canvas ref={ref} className="thumb" style={{ aspectRatio: String(aspect) }} />;
 }
+
+// 8×8 LED dot matrix icon
+const DOTS_8X8 = Array.from({ length: 64 }, (_, i) => {
+  const cx = 2.6 + (i % 8) * 2.686, cy = 2.6 + Math.floor(i / 8) * 2.686, r = 0.95;
+  return `M${(cx - r).toFixed(2)} ${cy.toFixed(2)}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0z`;
+}).join('');
 
 const ICONS: Record<string, string> = {
   play: 'M8 5v14l11-7z', pause: 'M7 5h4v14H7zM13 5h4v14h-4z', rewind: 'M6 5h2v14H6zM20 5v14L9 12z',
   plus: 'M12 5v14M5 12h14', trash: 'M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12', copy: 'M9 9h10v10H9zM5 15V5h10',
   left: 'M15 6l-6 6 6 6', right: 'M9 6l6 6-6 6', close: 'M6 6l12 12M18 6L6 18', export: 'M12 4v11M7 10l5 5 5-5M5 20h14',
-  grid: 'M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z', blob: 'M12 5c4.6 0 8.5 2.4 8.5 7s-3.9 7-8.5 7-8.5-2.4-8.5-7S7.4 5 12 5z', eyeRound: 'M7.2 8.2a3.8 3.8 0 100 7.6 3.8 3.8 0 000-7.6zM16.8 8.2a3.8 3.8 0 100 7.6 3.8 3.8 0 000-7.6z', eyeLong: 'M6.6 4.5h1.2a2.2 2.2 0 012.2 2.2v10.6a2.2 2.2 0 01-2.2 2.2H6.6a2.2 2.2 0 01-2.2-2.2V6.7a2.2 2.2 0 012.2-2.2zM16.2 4.5h1.2a2.2 2.2 0 012.2 2.2v10.6a2.2 2.2 0 01-2.2 2.2h-1.2A2.2 2.2 0 0114 17.3V6.7a2.2 2.2 0 012.2-2.2z',
+  grid: DOTS_8X8, blob: 'M12 5c4.6 0 8.5 2.4 8.5 7s-3.9 7-8.5 7-8.5-2.4-8.5-7S7.4 5 12 5z', eyeRound: 'M7.2 8.2a3.8 3.8 0 100 7.6 3.8 3.8 0 000-7.6zM16.8 8.2a3.8 3.8 0 100 7.6 3.8 3.8 0 000-7.6z', eyeLong: 'M6.6 4.5h1.2a2.2 2.2 0 012.2 2.2v10.6a2.2 2.2 0 01-2.2 2.2H6.6a2.2 2.2 0 01-2.2-2.2V6.7a2.2 2.2 0 012.2-2.2zM16.2 4.5h1.2a2.2 2.2 0 012.2 2.2v10.6a2.2 2.2 0 01-2.2 2.2h-1.2A2.2 2.2 0 0114 17.3V6.7a2.2 2.2 0 012.2-2.2z',
   check: 'M5 12.5l4.5 4.5L19 7', sun: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19', moon: 'M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z', pen: 'M4 20l4-1 11-11-3-3L5 16z',
 };
 const FILLED = new Set(['play', 'pause', 'rewind', 'grid', 'blob', 'eyeRound', 'eyeLong']);
 function Icon({ name, size = 16 }: { name: string; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={FILLED.has(name) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={FILLED.has(name) ? 'currentColor' : 'none'} stroke={FILLED.has(name) ? 'none' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d={ICONS[name]} />
     </svg>
   );
@@ -82,7 +88,10 @@ const fmt = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
 export function App() {
   const [seq, setSeq] = useState<Sequence>(load);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selIds, setSelIds] = useState<string[]>([]);
+  const selected = selIds.length === 1 ? selIds[0] : null;
+  const setSelected = (id: string | null) => setSelIds(id ? [id] : []);
+  const [marquee, setMarquee] = useState<null | { x0: number; y0: number; x1: number; y1: number }>(null);
   const [playing, setPlaying] = useState(true);
   const [time, setTime] = useState(0);
   const [exportState, setExportState] = useState<null | { p: number }>(null);
@@ -103,7 +112,7 @@ export function App() {
     if (!preview) return null;
     const p = buildProject({ ...seq, blocks: [{ id: 'pv', assetId: preview.id, seconds: preview.seconds }] });
     return p;
-  }, [preview, seq.eyeColor, seq.mode, seq.blend, seq.shape, seq.spacing, seq.custom, seq.useCustom]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [preview, seq.eyeColor, seq.mode, seq.blend, seq.shape, seq.spacing, seq.custom, seq.useCustom, seq.glow]); // eslint-disable-line react-hooks/exhaustive-deps
   const pvRef = useRef<{ project: ReturnType<typeof buildProject> | null; t: number }>({ project: null, t: 0 });
   if (pvRef.current.project !== previewProject) pvRef.current = { project: previewProject, t: 0 };
   const bgRef = useRef(seq.bg);
@@ -188,7 +197,7 @@ export function App() {
   const add = (a: Asset) => {
     const b = newBlock(a.id);
     update((s) => {
-      const i = selected ? s.blocks.findIndex((x) => x.id === selected) : -1;
+      const i = Math.max(-1, ...selIds.map((id) => s.blocks.findIndex((x) => x.id === id)));
       const blocks = s.blocks.slice();
       blocks.splice(i >= 0 ? i + 1 : blocks.length, 0, b);
       return { ...s, blocks };
@@ -203,13 +212,45 @@ export function App() {
     const blocks = s.blocks.slice(); [blocks[i], blocks[j]] = [blocks[j], blocks[i]];
     return { ...s, blocks };
   });
-  const remove = () => { update((s) => ({ ...s, blocks: s.blocks.filter((b) => b.id !== selected) })); setSelected(null); };
+  const remove = () => { update((s) => ({ ...s, blocks: s.blocks.filter((b) => !selIds.includes(b.id)) })); setSelIds([]); };
   const duplicate = () => {
-    if (!sel) return;
-    const copy = { ...sel, id: newBlock(sel.assetId).id };
-    update((s) => { const i = s.blocks.findIndex((b) => b.id === selected); const blocks = s.blocks.slice(); blocks.splice(i + 1, 0, copy); return { ...s, blocks }; });
-    setSelected(copy.id);
+    const group = seq.blocks.filter((b) => selIds.includes(b.id));
+    if (!group.length) return;
+    const copies = group.map((b) => ({ ...b, id: newBlock(b.assetId).id }));
+    update((s) => { const last = Math.max(...group.map((g) => s.blocks.findIndex((b) => b.id === g.id))); const blocks = s.blocks.slice(); blocks.splice(last + 1, 0, ...copies); return { ...s, blocks }; });
+    setSelIds(copies.map((c) => c.id));
   };
+
+  // marquee: drag on empty timeline space (e.g. from the bottom) to select several blocks
+  const startMarquee = (e: React.PointerEvent) => {
+    const t = e.target as HTMLElement;
+    if (t.closest('.block, .ruler, .playhead')) return;
+    const origin = stripRef.current?.getBoundingClientRect();
+    if (!origin) return;
+    e.preventDefault();
+    const base = e.shiftKey ? selIds : [];
+    const x0 = e.clientX - origin.left, y0 = e.clientY - origin.top;
+    let moved = false;
+    const hit = (x1: number, y1: number) => {
+      const lx = Math.min(x0, x1), hx = Math.max(x0, x1), ly = Math.min(y0, y1), hy = Math.max(y0, y1);
+      return seq.blocks.filter((_, i) => offsets[i] < hx && offsets[i] + widths[i] > lx && 32 < hy && 112 > ly).map((b) => b.id);
+    };
+    const move = (ev: PointerEvent) => {
+      const x1 = ev.clientX - origin.left, y1 = ev.clientY - origin.top;
+      if (Math.abs(x1 - x0) + Math.abs(y1 - y0) > 4) moved = true;
+      if (!moved) return;
+      setMarquee({ x0, y0, x1, y1 });
+      setSelIds(Array.from(new Set([...base, ...hit(x1, y1)])));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      setMarquee(null);
+      if (!moved && !e.shiftKey) setSelIds([]);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   // pointer-based block editing: drag body = move (drop away from the strip = delete), drag edges = trim/extend
   const [drag, setDrag] = useState<null | { id: string; dx: number; dy: number }>(null);
   const startBlockDrag = (e: React.PointerEvent, idx: number, mode: 'move' | 'l' | 'r') => {
@@ -217,7 +258,10 @@ export function App() {
     e.preventDefault();
     const b = seq.blocks[idx], a = ASSET_BY_ID[b.assetId];
     setPreview(null);
-    setSelected(b.id);
+    if ((e.shiftKey || e.metaKey || e.ctrlKey) && mode === 'move') { setSelIds((c) => (c.includes(b.id) ? c.filter((x) => x !== b.id) : [...c, b.id])); return; }
+    const inGroup = selIds.includes(b.id) && selIds.length > 1 && mode === 'move';
+    if (!inGroup) setSelected(b.id);
+    const group = inGroup ? seq.blocks.filter((x) => selIds.includes(x.id)) : [b];
     const x0 = e.clientX, y0 = e.clientY, sec0 = b.seconds;
     let moved = false;
     const calc = (ev: PointerEvent) => ({ dx: ev.clientX - x0, dy: ev.clientY - y0 });
@@ -233,15 +277,17 @@ export function App() {
       const { dx, dy } = calc(ev);
       setDrag(null);
       if (mode !== 'move') return;
-      if (!moved) { tRef.current = starts[idx]; setTime(starts[idx]); return; }
-      if (Math.abs(dy) > 70) { update((q) => ({ ...q, blocks: q.blocks.filter((x) => x.id !== b.id) })); setSelected(null); return; }
+      if (!moved) { if (inGroup) setSelected(b.id); tRef.current = starts[idx]; setTime(starts[idx]); return; }
+      const ids = group.map((g) => g.id);
+      if (Math.abs(dy) > 70) { update((q) => ({ ...q, blocks: q.blocks.filter((x) => !ids.includes(x.id)) })); setSelIds([]); return; }
       const center = offsets[idx] + widths[idx] / 2 + dx;
-      const others = seq.blocks.map((x, k) => ({ x, c: offsets[k] + widths[k] / 2 })).filter((o) => o.x.id !== b.id);
+      const others = seq.blocks.map((x, k) => ({ x, c: offsets[k] + widths[k] / 2 })).filter((o) => !ids.includes(o.x.id));
       const to = others.filter((o) => o.c < center).length;
       update((q) => {
-        const rest = q.blocks.filter((x) => x.id !== b.id);
-        rest.splice(to, 0, b);
-        return { ...q, blocks: rest.map((x) => q.blocks.find((y) => y.id === x.id) ?? x) };
+        const moving = q.blocks.filter((x) => ids.includes(x.id));
+        const rest = q.blocks.filter((x) => !ids.includes(x.id));
+        rest.splice(to, 0, ...moving);
+        return { ...q, blocks: rest };
       });
     };
     window.addEventListener('pointermove', move);
@@ -254,7 +300,8 @@ export function App() {
       if (tag === 'INPUT' || tag === 'SELECT') return;
       if (e.key === 'Escape') setPreview(null);
       if (e.key === ' ') { e.preventDefault(); setPreview(null); setPlaying((p) => !p); }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); remove(); }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selIds.length) { e.preventDefault(); remove(); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); setSelIds(seq.blocks.map((b) => b.id)); }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
@@ -298,6 +345,7 @@ export function App() {
     setPreview(null);
   };
 
+  const isDragging = (id: string) => !!drag && (drag.id === id || (selIds.includes(drag.id) && selIds.includes(id)));
   const groups: Asset['group'][] = ['감정', '동작', '시선', '이모지'];
   const total = totalMs(seq);
   const shapeOn = (sh: 'round' | 'long') => !(seq.useCustom && seq.mode === 'matrix') && seq.shape === sh;
@@ -306,10 +354,10 @@ export function App() {
   return (
     <div className="app">
       <header>
-        <div className="brand"><span className="logo"><i /><i /></span><b>로봇 눈 모션 제작소</b></div>
+        <div className="brand"><b>로봇 눈 모션</b></div>
         <div className="hgroup">
           <div className="seg" title="표시 방식">
-            <button className={seq.mode === 'matrix' ? 'on' : ''} title="LED 매트릭스" onClick={() => update((s) => ({ ...s, mode: 'matrix' }))}><Icon name="grid" size={16} /><span className="lbl">LED 매트릭스</span></button>
+            <button className={seq.mode === 'matrix' ? 'on' : ''} title="LED 매트릭스" onClick={() => update((s) => ({ ...s, mode: 'matrix' }))}><Icon name="grid" size={22} /><span className="lbl">LED 매트릭스</span></button>
             <button className={seq.mode === 'freeform' ? 'on' : ''} title="자유형 눈" onClick={() => update((s) => ({ ...s, mode: 'freeform' }))}><Icon name="blob" size={16} /><span className="lbl">자유형 눈</span></button>
           </div>
           <div className="seg alt" title="눈 모양">
@@ -327,7 +375,7 @@ export function App() {
         <select value={res} onChange={(e) => setRes(e.target.value)} title="영상 크기">
           <option value="1280x720">1280×720</option><option value="1920x1080">1920×1080</option><option value="1080x1080">1080×1080</option><option value="800x480">800×480</option>
         </select>
-        <button className="primary" onClick={doExport} disabled={!!exportState || empty}><Icon name="export" size={15} /> MP4 내보내기</button>
+        <button className="primary export" onClick={doExport} disabled={!!exportState || empty}><Icon name="export" size={15} /> MP4 내보내기</button>
       </header>
 
       <aside>
@@ -373,6 +421,10 @@ export function App() {
             <input type="range" min={30} max={250} step={5} value={seq.spacing} onChange={(e) => update((s) => ({ ...s, spacing: Number(e.target.value) }))} />
             <span className="val">{seq.spacing}%</span>
           </label>
+          <label className="slider" title="빛이 번지는 정도">빛 번짐
+            <input type="range" min={0} max={250} step={5} value={seq.glow} onChange={(e) => update((s) => ({ ...s, glow: Number(e.target.value) }))} />
+            <span className="val">{seq.glow}%</span>
+          </label>
           <label className="slider" title="블록이 이어질 때 감정이 섞이는 시간">연결 부드러움
             <input type="range" min={0} max={1000} step={25} value={seq.blend} onChange={(e) => update((s) => ({ ...s, blend: Number(e.target.value) }))} />
             <span className="val">{seq.blend}ms</span>
@@ -381,7 +433,7 @@ export function App() {
       </main>
 
       <footer>
-        <div className="strip" onDragOver={onLibDragOver} onDragLeave={(e) => { if (e.currentTarget === e.target) setDropIdx(null); }} onDrop={onLibDrop}>
+        <div className="strip" onPointerDown={startMarquee} onDragOver={onLibDragOver} onDragLeave={(e) => { if (e.currentTarget === e.target) setDropIdx(null); }} onDrop={onLibDrop}>
           {empty && <div className="empty"><b>타임라인이 비어 있어요</b><span>왼쪽에서 눈 모션을 골라 ＋ 를 눌러 블록을 이어 붙이세요</span></div>}
           <div className="blocks" ref={stripRef} style={{ width: offsets.length ? offsets[offsets.length - 1] + widths[widths.length - 1] : 0 }}>
             <div className="ruler" onPointerDown={scrub}>
@@ -395,8 +447,8 @@ export function App() {
             {seq.blocks.map((b, i) => {
               const a = ASSET_BY_ID[b.assetId];
               return (
-                <div key={b.id} className={`block ${a.group}${b.id === selected ? ' sel' : ''}${drag?.id === b.id ? (Math.abs(drag.dy) > 70 ? ' dragging erase' : ' dragging') : ''}`}
-                  style={{ left: offsets[i], width: widths[i] - 3, transform: drag?.id === b.id ? `translate(${drag.dx}px, ${drag.dy}px)` : undefined }}
+                <div key={b.id} className={`block ${a.group}${selIds.includes(b.id) ? ' sel' : ''}${isDragging(b.id) ? (Math.abs(drag!.dy) > 70 ? ' dragging erase' : ' dragging') : ''}`}
+                  style={{ left: offsets[i], width: widths[i] - 3, transform: isDragging(b.id) ? `translate(${drag!.dx}px, ${drag!.dy}px)` : undefined }}
                   onPointerDown={(e) => startBlockDrag(e, i, 'move')}>
                   <i className="grip l" onPointerDown={(e) => startBlockDrag(e, i, 'l')} />
                   <span className="bname">{a.label}</span><small>{b.seconds.toFixed(1)}s</small>
@@ -405,6 +457,7 @@ export function App() {
               );
             })}
             {dropIdx !== null && <div className="dropline" style={{ left: dropIdx < offsets.length ? offsets[dropIdx] - 2 : (offsets.length ? offsets[offsets.length - 1] + widths[widths.length - 1] : 0) }} />}
+            {marquee && <div className="marquee" style={{ left: Math.min(marquee.x0, marquee.x1), top: Math.min(marquee.y0, marquee.y1), width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0) }} />}
             <div className="playhead" style={{ left: playheadX }} onPointerDown={scrub}><i /></div>
           </div>
         </div>
@@ -421,10 +474,17 @@ export function App() {
               <button className="pill" onClick={duplicate}><Icon name="copy" size={14} /> 복제</button>
               <button className="pill danger" onClick={remove}><Icon name="trash" size={14} /> 삭제</button>
             </>
-          ) : <span className="hint">블록 드래그 = 이동 · 양쪽 끝 = 길이 · 위/아래로 멀리 놓기 = 삭제 · Space = 재생/정지</span>}
+          ) : selIds.length > 1 ? (
+            <>
+              <b>{selIds.length}개 선택됨</b>
+              <button className="pill" onClick={duplicate}><Icon name="copy" size={14} /> 복제</button>
+              <button className="pill danger" onClick={remove}><Icon name="trash" size={14} /> 삭제</button>
+              <span className="hint">끌면 함께 이동 · Shift+클릭으로 추가/해제</span>
+            </>
+          ) : <span className="hint">빈 곳을 드래그 = 여러 개 선택 · 블록 드래그 = 이동 · 양쪽 끝 = 길이 · 위/아래로 멀리 놓기 = 삭제</span>}
           <span className="grow" />
           {!empty && <button className="ghost" onClick={() => { if (confirm('모든 블록을 지울까요?')) { update((s) => ({ ...s, blocks: [] })); setSelected(null); } }}>전체 지우기</button>}
-          <button className="ghost" onClick={() => { update((s) => ({ ...defaultSequence(), eyeColor: s.eyeColor, bg: s.bg, mode: s.mode, shape: s.shape, custom: s.custom, useCustom: s.useCustom })); setSelected(null); }}>예시 불러오기</button>
+          <button className="ghost" onClick={() => { update((s) => ({ ...defaultSequence(), eyeColor: s.eyeColor, bg: s.bg, mode: s.mode, shape: s.shape, custom: s.custom, useCustom: s.useCustom, glow: s.glow, spacing: s.spacing })); setSelected(null); }}>예시 불러오기</button>
         </div>
       </footer>
 

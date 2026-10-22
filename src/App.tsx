@@ -61,6 +61,31 @@ const DOTS_8X8 = Array.from({ length: 64 }, (_, i) => {
   return `M${(cx - r).toFixed(2)} ${cy.toFixed(2)}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0z`;
 }).join('');
 
+/** Segmented-toggle button whose hover popover shows what the option looks like. */
+function ChoiceBtn({ on, onClick, icon, label, desc, preview }: { on: boolean; onClick: () => void; icon: string; label: string; desc: string; preview: Sequence }) {
+  const [hover, setHover] = useState(false);
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!hover || !ref.current) return;
+    const c = ref.current, W = 176, H = 99, dpr = 2;
+    c.width = W * dpr; c.height = H * dpr;
+    const ctx = c.getContext('2d')!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawAt(ctx, W, H, buildProject({ ...preview, blocks: [] }), 0, preview.bg, true);
+  }, [hover, preview]);
+  return (
+    <button className={on ? 'on' : ''} onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onFocus={() => setHover(true)} onBlur={() => setHover(false)} aria-label={label}>
+      <Icon name={icon} size={icon === 'eyeRound' || icon === 'eyeLong' ? 20 : icon === 'grid' ? 22 : 16} /><span className="lbl">{label}</span>
+      {hover && (
+        <span className="pop" role="tooltip">
+          <canvas ref={ref} style={{ width: 176, height: 99 }} />
+          <b>{label}</b><small>{desc}</small>
+        </span>
+      )}
+    </button>
+  );
+}
+
 const ICONS: Record<string, string> = {
   play: 'M8 5v14l11-7z', pause: 'M7 5h4v14H7zM13 5h4v14h-4z', rewind: 'M6 5h2v14H6zM20 5v14L9 12z',
   plus: 'M12 5v14M5 12h14', trash: 'M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12', copy: 'M9 9h10v10H9zM5 15V5h10',
@@ -356,16 +381,16 @@ export function App() {
       <header>
         <div className="brand"><b>로봇 눈 모션</b></div>
         <div className="hgroup">
-          <div className="seg" title="표시 방식">
-            <button className={seq.mode === 'matrix' ? 'on' : ''} title="LED 매트릭스" onClick={() => update((s) => ({ ...s, mode: 'matrix' }))}><Icon name="grid" size={22} /><span className="lbl">LED 매트릭스</span></button>
-            <button className={seq.mode === 'freeform' ? 'on' : ''} title="자유형 눈" onClick={() => update((s) => ({ ...s, mode: 'freeform' }))}><Icon name="blob" size={16} /><span className="lbl">자유형 눈</span></button>
+          <div className="seg">
+            <ChoiceBtn on={seq.mode === 'matrix'} icon="grid" label="LED 매트릭스" desc="8×8 LED 두 개, 점으로 표현" preview={{ ...seq, mode: 'matrix' }} onClick={() => update((s) => ({ ...s, mode: 'matrix' }))} />
+            <ChoiceBtn on={seq.mode === 'freeform'} icon="blob" label="자유형 눈" desc="부드러운 곡선으로 그리는 눈" preview={{ ...seq, mode: 'freeform', useCustom: false }} onClick={() => update((s) => ({ ...s, mode: 'freeform' }))} />
           </div>
-          <div className="seg alt" title="눈 모양">
-            <button className={shapeOn('round') ? 'on' : ''} title="동그란 눈" onClick={() => update((s) => ({ ...s, shape: 'round', useCustom: false }))}><Icon name="eyeRound" size={20} /><span className="lbl">동그란 눈</span></button>
-            <button className={shapeOn('long') ? 'on' : ''} title="긴 눈" onClick={() => update((s) => ({ ...s, shape: 'long', useCustom: false }))}><Icon name="eyeLong" size={20} /><span className="lbl">긴 눈</span></button>
+          <div className="seg alt">
+            <ChoiceBtn on={shapeOn('round')} icon="eyeRound" label="동그란 눈" desc="둥글고 귀여운 눈" preview={{ ...seq, shape: 'round', useCustom: false }} onClick={() => update((s) => ({ ...s, shape: 'round', useCustom: false }))} />
+            <ChoiceBtn on={shapeOn('long')} icon="eyeLong" label="긴 눈" desc="세로로 긴 눈" preview={{ ...seq, shape: 'long', useCustom: false }} onClick={() => update((s) => ({ ...s, shape: 'long', useCustom: false }))} />
             {seq.mode === 'matrix' && (
-              <button className={seq.useCustom ? 'on' : ''} title="내 눈 — LED 눈을 직접 그리기"
-                onClick={() => { update((s) => ({ ...s, useCustom: true, custom: s.custom ?? presetEyePattern(s.shape) })); setEditEye(true); }}><Icon name="pen" size={16} /><span className="lbl">내 눈</span></button>
+              <ChoiceBtn on={seq.useCustom} icon="pen" label="내 눈" desc="LED를 직접 찍어서 만든 눈" preview={{ ...seq, useCustom: !!seq.custom, custom: seq.custom }}
+                onClick={() => { update((s) => ({ ...s, useCustom: true, custom: s.custom ?? presetEyePattern(s.shape) })); setEditEye(true); }} />
             )}
           </div>
           <label className="swatch" title="눈 색상"><input type="color" value={seq.eyeColor} onChange={(e) => update((s) => ({ ...s, eyeColor: e.target.value }))} /><span>눈</span></label>

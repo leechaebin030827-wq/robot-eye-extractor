@@ -2,6 +2,7 @@ import type { Project } from '../engine/types';
 import { evaluateEye } from '../engine/controller';
 import { generateMatrixFrame, drawMatrix } from '../render/matrixRenderer';
 import { buildEye, drawFreeform, setRoundQuality } from '../render/freeformRenderer';
+import { drawHalftone } from '../render/halftoneRenderer';
 
 export const BG = '#0b0d10';
 
@@ -14,8 +15,10 @@ export function drawAt(ctx: CanvasRenderingContext2D, W: number, H: number, proj
   } else {
     setRoundQuality(compact ? 50 : 220);
     const g = project.freeform.geometry;
-    drawFreeform(ctx, W, H, [buildEye('L', f, g), buildEye('R', f, g)], g,
-      { zoom: 1.25, panX: 0, panY: 0, bg, grid: false, showOutline: false, showPoints: false },
-      null, f.symbol ? { id: f.symbol.id, w: f.symbol.w, t: f.t, closure: [f.closureL, f.closureR] } : undefined);
+    const eyes = [buildEye('L', f, g), buildEye('R', f, g)];
+    const view = { zoom: 1.25, panX: 0, panY: 0, bg, grid: false, showOutline: false, showPoints: false };
+    const sym = f.symbol ? { id: f.symbol.id, w: f.symbol.w, t: f.t, closure: [f.closureL, f.closureR] as [number, number] } : undefined;
+    if (project.variant) drawHalftone(ctx, W, H, eyes, g, view, sym, compact, project.variant === 'halftoneGrid' ? 'grid' : 'smooth');
+    else drawFreeform(ctx, W, H, eyes, g, view, null, sym);
   }
 }

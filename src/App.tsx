@@ -18,7 +18,7 @@ function load(): Sequence {
     if (o && Array.isArray(o.blocks)) {
       const blocks = o.blocks.filter((b: { assetId?: string; seconds?: number }) => b && ASSET_BY_ID[b.assetId ?? ''] && Number.isFinite(b.seconds))
         .map((b: { id: string; assetId: string; seconds: number }) => ({ id: String(b.id), assetId: b.assetId, seconds: Math.min(60, Math.max(0.1, b.seconds)) }));
-      return { blocks, blend: Number.isFinite(o.blend) ? Math.min(1200, Math.max(0, o.blend)) : 450, eyeColor: o.bg === undefined ? '#FFFFFF' : hex(o.eyeColor, '#FFFFFF'), bg: hex(o.bg, '#000000'), mode: o.mode === 'freeform' ? 'freeform' : 'matrix', shape: o.shape === 'long' ? 'long' : 'round', spacing: Number.isFinite(o.spacing) ? Math.min(250, Math.max(30, o.spacing)) : 115, custom: o.custom && isValidPattern(o.custom.left) && isValidPattern(o.custom.right) ? { left: o.custom.left, right: o.custom.right } : null, useCustom: o.useCustom === true && !!o.custom, glow: Number.isFinite(o.glow) ? Math.min(250, Math.max(0, o.glow)) : 100 };
+      return { blocks, blend: Number.isFinite(o.blend) ? Math.min(1200, Math.max(0, o.blend)) : 450, eyeColor: o.bg === undefined ? '#FFFFFF' : hex(o.eyeColor, '#FFFFFF'), bg: hex(o.bg, '#000000'), mode: ['freeform', 'halftone', 'halftoneGrid'].includes(o.mode) ? o.mode : 'matrix', shape: o.shape === 'long' ? 'long' : 'round', spacing: Number.isFinite(o.spacing) ? Math.min(250, Math.max(30, o.spacing)) : 115, custom: o.custom && isValidPattern(o.custom.left) && isValidPattern(o.custom.right) ? { left: o.custom.left, right: o.custom.right } : null, useCustom: o.useCustom === true && !!o.custom, glow: Number.isFinite(o.glow) ? Math.min(250, Math.max(0, o.glow)) : 100 };
     }
   } catch { /* fall through */ }
   return defaultSequence();
@@ -86,14 +86,22 @@ function ChoiceBtn({ on, onClick, icon, label, desc, preview }: { on: boolean; o
   );
 }
 
+const dot = (cx: number, cy: number, r: number) => `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0z`;
+// halftone icon: big dots with small dots between them
+const HALFTONE = [[6.5, 6.5], [17.5, 6.5], [6.5, 17.5], [17.5, 17.5]].map(([x, y]) => dot(x, y, 2.9)).join('') + [[12, 6.5], [6.5, 12], [17.5, 12], [12, 17.5]].map(([x, y]) => dot(x, y, 1.15)).join('') + dot(12, 12, 1.7);
+
+// smooth variant icon: dots that shrink toward the edge
+const HALFTONE_SMOOTH = [[12, 12, 3.3], [5.2, 12, 1.9], [18.8, 12, 1.9], [12, 5.2, 1.9], [12, 18.8, 1.9], [6.4, 6.4, 1.1], [17.6, 6.4, 1.1], [6.4, 17.6, 1.1], [17.6, 17.6, 1.1]].map(([x, y, r]) => dot(x, y, r)).join('');
+
 const ICONS: Record<string, string> = {
+  halftone: HALFTONE_SMOOTH, halftoneGrid: HALFTONE,
   play: 'M8 5v14l11-7z', pause: 'M7 5h4v14H7zM13 5h4v14h-4z', rewind: 'M6 5h2v14H6zM20 5v14L9 12z',
   plus: 'M12 5v14M5 12h14', trash: 'M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12', copy: 'M9 9h10v10H9zM5 15V5h10',
   left: 'M15 6l-6 6 6 6', right: 'M9 6l6 6-6 6', close: 'M6 6l12 12M18 6L6 18', export: 'M12 4v11M7 10l5 5 5-5M5 20h14',
   grid: DOTS_8X8, blob: 'M12 5c4.6 0 8.5 2.4 8.5 7s-3.9 7-8.5 7-8.5-2.4-8.5-7S7.4 5 12 5z', eyeRound: 'M7.2 8.2a3.8 3.8 0 100 7.6 3.8 3.8 0 000-7.6zM16.8 8.2a3.8 3.8 0 100 7.6 3.8 3.8 0 000-7.6z', eyeLong: 'M6.6 4.5h1.2a2.2 2.2 0 012.2 2.2v10.6a2.2 2.2 0 01-2.2 2.2H6.6a2.2 2.2 0 01-2.2-2.2V6.7a2.2 2.2 0 012.2-2.2zM16.2 4.5h1.2a2.2 2.2 0 012.2 2.2v10.6a2.2 2.2 0 01-2.2 2.2h-1.2A2.2 2.2 0 0114 17.3V6.7a2.2 2.2 0 012.2-2.2z',
   check: 'M5 12.5l4.5 4.5L19 7', sun: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19', moon: 'M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z', pen: 'M4 20l4-1 11-11-3-3L5 16z',
 };
-const FILLED = new Set(['play', 'pause', 'rewind', 'grid', 'blob', 'eyeRound', 'eyeLong']);
+const FILLED = new Set(['play', 'pause', 'rewind', 'halftone', 'halftoneGrid', 'grid', 'blob', 'eyeRound', 'eyeLong']);
 function Icon({ name, size = 16 }: { name: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={FILLED.has(name) ? 'currentColor' : 'none'} stroke={FILLED.has(name) ? 'none' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -383,6 +391,8 @@ export function App() {
         <div className="hgroup">
           <div className="seg">
             <ChoiceBtn on={seq.mode === 'matrix'} icon="grid" label="LED 매트릭스" desc="8×8 LED 두 개, 점으로 표현" preview={{ ...seq, mode: 'matrix' }} onClick={() => update((s) => ({ ...s, mode: 'matrix' }))} />
+            <ChoiceBtn on={seq.mode === 'halftoneGrid'} icon="halftoneGrid" label="도트 격자형" desc="LED 매트릭스에 가까운, 칸이 보이는 작은 도트" preview={{ ...seq, mode: 'halftoneGrid', useCustom: false }} onClick={() => update((s) => ({ ...s, mode: 'halftoneGrid' }))} />
+            <ChoiceBtn on={seq.mode === 'halftone'} icon="halftone" label="도트 곡선형" desc="자유형에 가까운, 부드럽게 변하는 작은 도트" preview={{ ...seq, mode: 'halftone', useCustom: false }} onClick={() => update((s) => ({ ...s, mode: 'halftone' }))} />
             <ChoiceBtn on={seq.mode === 'freeform'} icon="blob" label="자유형 눈" desc="부드러운 곡선으로 그리는 눈" preview={{ ...seq, mode: 'freeform', useCustom: false }} onClick={() => update((s) => ({ ...s, mode: 'freeform' }))} />
           </div>
           <div className="seg alt">

@@ -64,7 +64,8 @@ ASSETS.push(
 export const ASSET_BY_ID = Object.fromEntries(ASSETS.map((a) => [a.id, a]));
 
 export interface Block { id: string; assetId: string; seconds: number }
-export interface Sequence { blocks: Block[]; blend: number; eyeColor: string; bg: string; mode: Mode; shape: 'round' | 'long'; spacing: number; custom: { left: string[]; right: string[] } | null; useCustom: boolean; glow: number }
+export type Style = 'matrix' | 'freeform' | 'halftone' | 'halftoneGrid';
+export interface Sequence { blocks: Block[]; blend: number; eyeColor: string; bg: string; mode: Style; shape: 'round' | 'long'; spacing: number; custom: { left: string[]; right: string[] } | null; useCustom: boolean; glow: number }
 
 export const newBlock = (assetId: string): Block => ({ id: uid('b'), assetId, seconds: ASSET_BY_ID[assetId]?.seconds ?? 2 });
 
@@ -118,7 +119,9 @@ export function presetEyePattern(shape: 'round' | 'long'): { left: string[]; rig
 
 export function buildProject(seq: Sequence): Project {
   const p = defaultProject();
-  p.mode = seq.mode;
+  p.mode = seq.mode === 'matrix' ? 'matrix' : 'freeform';
+  if (seq.mode === 'halftone') p.variant = 'halftone';
+  if (seq.mode === 'halftoneGrid') p.variant = 'halftoneGrid';
   p.timeline = compile(seq);
   p.matrix.physical.ledColor = seq.eyeColor;
   p.matrix.physical.dimensions = false;

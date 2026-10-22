@@ -196,6 +196,8 @@ export interface Timeline {
 export interface Scenario { id: string; name: string; description?: string; timeline: Timeline }
 
 export interface Project {
+  /** studio-only render variant: eyes drawn as halftone dots (uses the freeform geometry) */
+  variant?: 'halftone' | 'halftoneGrid';
   version: 1;
   name: string;
   mode: Mode;

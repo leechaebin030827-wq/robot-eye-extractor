@@ -176,3 +176,33 @@ header, footer, aside { box-shadow: none; }
 .tabs button.감정 { border-left-color: var(--emo); } .tabs button.동작 { border-left-color: var(--act); } .tabs button.시선 { border-left-color: var(--gaze); } .tabs button.이모지 { border-left-color: var(--sym); }
 .tabs button.on { background: var(--raised); border-color: var(--line2); outline: 1px solid var(--text); outline-offset: -1px; }
 .tabs button.on.감정, .tabs button.on.동작, .tabs button.on.시선, .tabs button.on.이모지 { border-bottom-color: var(--line2); }
+
+/* 4-column category bar */
+.tabs { grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 10px 10px 8px; }
+.tabs button { align-items: center; text-align: center; gap: 3px; padding: 9px 2px 7px; border-left: 1px solid var(--line); border-top: 3px solid var(--line2); }
+.tabs button .ticon { font-size: 22px; }
+.tabs button .tname { flex-direction: column; align-items: center; gap: 0; font-size: 12.5px; }
+.tabs button .tname small { font-size: 10px; }
+.tabs button.감정 { border-left-color: var(--line); border-top-color: var(--emo); } .tabs button.동작 { border-left-color: var(--line); border-top-color: var(--act); }
+.tabs button.시선 { border-left-color: var(--line); border-top-color: var(--gaze); } .tabs button.이모지 { border-left-color: var(--line); border-top-color: var(--sym); }
+.tabs button:not(.on) { opacity: .6; } .tabs button:not(.on):hover { opacity: 1; }
+.tip b { color: var(--text); font-weight: 600; }
+
+/* more prominent mode / shape switches */
+.hgroup { gap: 16px; }
+.hfield { display: flex; flex-direction: column; gap: 3px; }
+.hfield .cap { font-size: 10px; letter-spacing: .08em; color: var(--muted); font-weight: 700; padding-left: 2px; }
+.hfield .seg { padding: 2px; border: 1px solid var(--line2); background: var(--bg); }
+.seg button { padding: 6px 15px; font-size: 13.5px; font-weight: 700; color: #b7c0cd; }
+.seg button:hover:not(:disabled) { color: #fff; background: var(--raised); }
+.seg button.on { background: var(--primary); color: var(--on-primary); outline: 2px solid color-mix(in srgb, var(--primary) 40%, transparent); outline-offset: 1px; position: relative; }
+
+
+/* icon toggles: inactive = icon only, active expands to icon + label (fixed-width, animated) */
+.hfield .seg, .seg { border: 1px solid var(--line2); background: var(--bg); padding: 2px; }
+.seg button { padding: 7px 11px; gap: 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+.seg button .lbl { display: inline-block; max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; margin-left: 0; transition: max-width .22s ease, opacity .18s ease, margin .22s ease; }
+.seg button.on { outline: none; padding: 7px 13px; }
+.seg button.on .lbl { max-width: 110px; opacity: 1; margin-left: 7px; }
+.seg button:hover:not(.on):not(:disabled) { color: var(--text); background: var(--raised); }
+.seg.alt button.on { background: rgba(255,255,255,.08); border: 1px solid #fff; color: #fff; }

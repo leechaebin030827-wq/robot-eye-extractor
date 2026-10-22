@@ -59,9 +59,10 @@ const ICONS: Record<string, string> = {
   play: 'M8 5v14l11-7z', pause: 'M7 5h4v14H7zM13 5h4v14h-4z', rewind: 'M6 5h2v14H6zM20 5v14L9 12z',
   plus: 'M12 5v14M5 12h14', trash: 'M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12', copy: 'M9 9h10v10H9zM5 15V5h10',
   left: 'M15 6l-6 6 6 6', right: 'M9 6l6 6-6 6', close: 'M6 6l12 12M18 6L6 18', export: 'M12 4v11M7 10l5 5 5-5M5 20h14',
-  sun: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19', moon: 'M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z', pen: 'M4 20l4-1 11-11-3-3L5 16z',
+  grid: 'M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z', blob: 'M12 5c4.6 0 8.5 2.4 8.5 7s-3.9 7-8.5 7-8.5-2.4-8.5-7S7.4 5 12 5z', eyeRound: 'M7.2 8.2a3.8 3.8 0 100 7.6 3.8 3.8 0 000-7.6zM16.8 8.2a3.8 3.8 0 100 7.6 3.8 3.8 0 000-7.6z', eyeLong: 'M6.6 4.5h1.2a2.2 2.2 0 012.2 2.2v10.6a2.2 2.2 0 01-2.2 2.2H6.6a2.2 2.2 0 01-2.2-2.2V6.7a2.2 2.2 0 012.2-2.2zM16.2 4.5h1.2a2.2 2.2 0 012.2 2.2v10.6a2.2 2.2 0 01-2.2 2.2h-1.2A2.2 2.2 0 0114 17.3V6.7a2.2 2.2 0 012.2-2.2z',
+  check: 'M5 12.5l4.5 4.5L19 7', sun: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19', moon: 'M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z', pen: 'M4 20l4-1 11-11-3-3L5 16z',
 };
-const FILLED = new Set(['play', 'pause', 'rewind']);
+const FILLED = new Set(['play', 'pause', 'rewind', 'grid', 'blob', 'eyeRound', 'eyeLong']);
 function Icon({ name, size = 16 }: { name: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={FILLED.has(name) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -308,15 +309,15 @@ export function App() {
         <div className="brand"><span className="logo"><i /><i /></span><b>로봇 눈 모션 제작소</b></div>
         <div className="hgroup">
           <div className="seg" title="표시 방식">
-            <button className={seq.mode === 'matrix' ? 'on' : ''} onClick={() => update((s) => ({ ...s, mode: 'matrix' }))}>LED 매트릭스</button>
-            <button className={seq.mode === 'freeform' ? 'on' : ''} onClick={() => update((s) => ({ ...s, mode: 'freeform' }))}>자유형 눈</button>
+            <button className={seq.mode === 'matrix' ? 'on' : ''} title="LED 매트릭스" onClick={() => update((s) => ({ ...s, mode: 'matrix' }))}><Icon name="grid" size={16} /><span className="lbl">LED 매트릭스</span></button>
+            <button className={seq.mode === 'freeform' ? 'on' : ''} title="자유형 눈" onClick={() => update((s) => ({ ...s, mode: 'freeform' }))}><Icon name="blob" size={16} /><span className="lbl">자유형 눈</span></button>
           </div>
-          <div className="seg" title="눈 모양">
-            <button className={shapeOn('round') ? 'on' : ''} onClick={() => update((s) => ({ ...s, shape: 'round', useCustom: false }))}>동그란 눈</button>
-            <button className={shapeOn('long') ? 'on' : ''} onClick={() => update((s) => ({ ...s, shape: 'long', useCustom: false }))}>긴 눈</button>
+          <div className="seg alt" title="눈 모양">
+            <button className={shapeOn('round') ? 'on' : ''} title="동그란 눈" onClick={() => update((s) => ({ ...s, shape: 'round', useCustom: false }))}><Icon name="eyeRound" size={20} /><span className="lbl">동그란 눈</span></button>
+            <button className={shapeOn('long') ? 'on' : ''} title="긴 눈" onClick={() => update((s) => ({ ...s, shape: 'long', useCustom: false }))}><Icon name="eyeLong" size={20} /><span className="lbl">긴 눈</span></button>
             {seq.mode === 'matrix' && (
-              <button className={seq.useCustom ? 'on' : ''} title="LED 눈을 직접 그리기"
-                onClick={() => { update((s) => ({ ...s, useCustom: true, custom: s.custom ?? presetEyePattern(s.shape) })); setEditEye(true); }}><Icon name="pen" size={13} /> 내 눈</button>
+              <button className={seq.useCustom ? 'on' : ''} title="내 눈 — LED 눈을 직접 그리기"
+                onClick={() => { update((s) => ({ ...s, useCustom: true, custom: s.custom ?? presetEyePattern(s.shape) })); setEditEye(true); }}><Icon name="pen" size={16} /><span className="lbl">내 눈</span></button>
             )}
           </div>
           <label className="swatch" title="눈 색상"><input type="color" value={seq.eyeColor} onChange={(e) => update((s) => ({ ...s, eyeColor: e.target.value }))} /><span>눈</span></label>
@@ -332,14 +333,13 @@ export function App() {
       <aside>
         <div className="tabs" role="tablist">
           {groups.map((g) => (
-            <button key={g} role="tab" aria-selected={tab === g} className={`${tab === g ? 'on ' : ''}${g}`} onClick={() => setTab(g)}>
+            <button key={g} role="tab" aria-selected={tab === g} title={TAB_INFO[g].hint} className={`${tab === g ? 'on ' : ''}${g}`} onClick={() => setTab(g)}>
               <span className="ticon">{TAB_INFO[g].icon}</span>
               <span className="tname">{g}<small>{ASSETS.filter((a) => a.group === g).length}</small></span>
-              <span className="thint">{TAB_INFO[g].hint}</span>
             </button>
           ))}
         </div>
-        <p className="tip">눌러서 미리보기 · 타임라인으로 드래그하거나 <Icon name="plus" size={11} /> 로 추가</p>
+        <p className="tip"><b>{TAB_INFO[tab].hint}</b> · 눌러서 미리보기, 끌어서 추가</p>
         <div className="assets" key={tab}>
           {ASSETS.filter((a) => a.group === tab).map((a) => (
             <div key={a.id} role="button" tabIndex={0} className={`asset ${a.group}${preview?.id === a.id ? ' active' : ''}`} onClick={() => setPreview(a)}

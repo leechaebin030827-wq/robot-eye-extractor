@@ -135,6 +135,8 @@ export interface FreeformGeometry {
   springOvershoot: number;
   eyeColor: string;
   glow: number;
+  /** true = outline is an exact stadium/pill (fully round ends, straight sides) instead of the super-ellipse */
+  stadium?: boolean;
   offsetsL: number[]; // 2 * CONTROL_POINTS
   offsetsR: number[];
 }

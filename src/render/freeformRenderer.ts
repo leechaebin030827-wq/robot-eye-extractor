@@ -39,6 +39,18 @@ function superEllipseAnchors(cornerRadius: number): [number, number][] {
   return pts;
 }
 
+/** Exact pill outline in unit space: semicircular caps (radius 1 in x, `ry` in y) joined by straight sides. */
+function stadiumDense(ry: number): [number, number][] {
+  const pts: [number, number][] = [];
+  const cy = Math.max(0, 1 - ry);
+  const N = 56;
+  for (let i = 0; i < N; i++) { const a = Math.PI + (Math.PI * i) / N; pts.push([Math.cos(a), -cy + ry * Math.sin(a)]); }
+  for (let i = 0; i < 24; i++) pts.push([1, -cy + (2 * cy * i) / 24]);
+  for (let i = 0; i < N; i++) { const a = (Math.PI * i) / N; pts.push([Math.cos(a), cy + ry * Math.sin(a)]); }
+  for (let i = 0; i < 24; i++) pts.push([-1, cy - (2 * cy * i) / 24]);
+  return pts;
+}
+
 function catmullDense(pts: [number, number][]): [number, number][] {
   const n = pts.length;
   const out: [number, number][] = [];
@@ -134,7 +146,7 @@ export function buildEye(side: Side, f: EyeFrame, g: FreeformGeometry): EyeGeome
   const rot = ((g.rotation + sgn * (g.tilt * 22 + f.shape.tilt * 18)) * Math.PI) / 180;
   const tf: EyeTransform = { cx, cy, rot, halfW: w / 2, halfH: h / 2, curv: g.curvature };
 
-  const dense = catmullDense(unit);
+  const dense = g.stadium ? stadiumDense(clamp(w / h, 0.05, 1)) : catmullDense(unit);
   const closure = isL ? f.closureL : f.closureR;
   const o = clamp01(f.openness);
   const closeAmt = 1 - o * (1 - closure);

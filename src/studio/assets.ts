@@ -134,6 +134,8 @@ export function buildProject(seq: Sequence): Project {
     // tall pill eyes
     const m = p.matrix.geometry; m.leftW = 3; m.rightW = 3; m.eyeH = 5; m.corner = 1;
     const f = p.freeform.geometry; f.widthL = f.widthR = 160; f.heightL = f.heightR = 250; f.cornerRadius = 0.62; f.spacing = 180;
+    // dot-curve style: a perfectly round 1:2 pill
+    if (seq.mode === 'halftone') { f.stadium = true; f.widthL = f.widthR = 130; f.heightL = f.heightR = 260; f.spacing = 190; }
   }
   if (seq.useCustom && seq.custom) { p.matrix.geometry.customL = seq.custom.left; p.matrix.geometry.customR = seq.custom.right; }
   // eye spacing: percentage of the default (freeform: eye spacing, matrix: physical gap between the two modules)

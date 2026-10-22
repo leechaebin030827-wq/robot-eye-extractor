@@ -1,6 +1,7 @@
 import type { EyeFrame, MatrixFrame, MatrixGeometry, MatrixPhysical, Pattern, Side } from '../engine/types';
 import { clamp, clamp01 } from '../engine/util';
 import { emptyGrid, patternToGrid } from '../engine/patterns';
+import { SYMBOLS } from './symbols';
 
 /**
  * MatrixRenderer — two independent 8×8 binary LED grids.
@@ -12,12 +13,22 @@ const sideOffset = (side: Side, geo: MatrixGeometry) => (side === 'L' ? geo.offs
 
 function generatedEye(side: Side, f: EyeFrame, geo: MatrixGeometry): boolean[][] {
   const g = emptyGrid();
-  const w = clamp(Math.round((side === 'L' ? geo.leftW : geo.rightW) * f.shape.sx), 1, 8);
+  let w = clamp(Math.round((side === 'L' ? geo.leftW : geo.rightW) * f.shape.sx), 1, 8);
   let h = Math.round(geo.eyeH * f.shape.sy + (side === 'R' ? geo.asymmetry : 0));
   const outer = (side === 'L' && f.gazeX < -0.35) || (side === 'R' && f.gazeX > 0.35);
   if (f.curiosity > 0.5 && outer) h += 1; // RoboEyes-style curiosity: outer eye grows when looking aside
   if (f.openness > 1.08) h += 1;
   h = clamp(h, 1, 8);
+
+  // user-designed eye: its bounding box defines the base shape, the mask decides which pixels exist
+  let mask: boolean[][] | null = null, mr0 = 0, mc0 = 0;
+  const custom = side === 'L' ? geo.customL : geo.customR;
+  if (custom) {
+    const cg = patternToGrid(custom);
+    let rmin = 8, rmax = -1, cmin = 8, cmax = -1;
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (cg[r][c]) { rmin = Math.min(rmin, r); rmax = Math.max(rmax, r); cmin = Math.min(cmin, c); cmax = Math.max(cmax, c); }
+    if (rmax >= 0) { mask = cg; mr0 = rmin; mc0 = cmin; w = cmax - cmin + 1; h = rmax - rmin + 1; }
+  }
 
   const closure = side === 'L' ? f.closureL : f.closureR;
   const o = clamp01(f.openness);
@@ -49,7 +60,7 @@ function generatedEye(side: Side, f: EyeFrame, geo: MatrixGeometry): boolean[][]
   }
   const rowTop = clamp(Math.round(mid - rows / 2), 0, 8 - rows);
   const rowBottom = rowTop + rows - 1;
-  const level = rows >= 3 && w >= 3 ? clamp(Math.round(geo.corner + f.shape.round * 2), 0, 2) : 0;
+  const level = !mask && rows >= 3 && w >= 3 ? clamp(Math.round(geo.corner + f.shape.round * 2), 0, 2) : 0;
 
   for (let cx = 0; cx < w; cx++) {
     const inner = w === 1 ? 0.5 : side === 'L' ? cx / (w - 1) : 1 - cx / (w - 1);
@@ -64,6 +75,7 @@ function generatedEye(side: Side, f: EyeFrame, geo: MatrixGeometry): boolean[][]
         const dy = Math.min(r - rowTop, rowBottom - r);
         if (dx + dy < level && !(level === 2 && (w < 4 || rows < 4) && dx + dy >= 1)) continue;
       }
+      if (mask && !mask[r - y0 + mr0]?.[cx + mc0]) continue;
       g[r][x0 + cx] = true;
     }
   }
@@ -106,6 +118,15 @@ function patternEye(src: Pattern, side: Side, f: EyeFrame, geo: MatrixGeometry):
 export function generateMatrixFrame(f: EyeFrame, geo: MatrixGeometry): MatrixFrame {
   let left: boolean[][], right: boolean[][];
   let source: MatrixFrame['source'] = 'eye';
+  const sym = f.symbol && f.symbol.w >= 0.5 ? SYMBOLS[f.symbol.id] : undefined;
+  if (sym) {
+    // emoji eye: whole-pixel patterns, no gaze shift (they already fill the module); blinks still mask rows
+    const nf = { ...f, gazeX: 0, gazeY: 0, flickerX: 0, flickerY: 0 };
+    const l = patternEye(sym.matrix(f.t, 'L'), 'L', nf, { ...geo, posX: 0, posY: 0, offsetL: 0, offsetR: 0 });
+    const r = patternEye(sym.matrix(f.t, 'R'), 'R', nf, { ...geo, posX: 0, posY: 0, offsetL: 0, offsetR: 0 });
+    const count = (g: boolean[][]) => g.reduce((a, row) => a + row.filter(Boolean).length, 0);
+    return { timestamp: f.t, left: l, right: r, brightness: geo.brightness, ledCount: count(l) + count(r), source: 'pattern' };
+  }
   const pat = f.pattern ?? (geo.usePattern ? { left: geo.editorLeft, right: geo.editorRight } : undefined);
   if (pat) {
     left = patternEye(pat.left, 'L', f, geo);
@@ -121,7 +142,7 @@ export function generateMatrixFrame(f: EyeFrame, geo: MatrixGeometry): MatrixFra
 
 // ----------------------------------------------------------------- draw
 
-export interface MatrixView { zoom: number; panX: number; panY: number; bg: string; grid: boolean }
+export interface MatrixView { zoom: number; panX: number; panY: number; bg: string; grid: boolean; compact?: boolean }
 
 export interface MatrixLayout {
   scale: number; // css px per mm
@@ -176,7 +197,7 @@ export function drawMatrix(ctx: CanvasRenderingContext2D, W: number, H: number, 
   // gap: explicitly empty, no LEDs
   const gapX = L.modX[0] + phys.moduleW * s;
   const gapW = phys.gap * s;
-  if (gapW > 1) {
+  if (gapW > 1 && !v.compact) {
     ctx.save();
     ctx.beginPath(); ctx.rect(gapX, L.modY, gapW, phys.moduleH * s); ctx.clip();
     ctx.strokeStyle = 'rgba(215,240,128,0.10)';
@@ -192,7 +213,7 @@ export function drawMatrix(ctx: CanvasRenderingContext2D, W: number, H: number, 
   for (let m = 0; m < 2; m++) {
     const mx = L.modX[m], my = L.modY;
     const mw = phys.moduleW * s, mh = phys.moduleH * s;
-    if (phys.frameVisible) {
+    if (phys.frameVisible && !v.compact) {
       ctx.fillStyle = '#0a0c0f';
       ctx.strokeStyle = '#3a424c';
       ctx.lineWidth = 1.5;
@@ -206,7 +227,7 @@ export function drawMatrix(ctx: CanvasRenderingContext2D, W: number, H: number, 
     }
     const gx0 = mx + ((phys.moduleW - gridW) / 2) * s;
     const gy0 = my + ((phys.moduleH - gridH) / 2) * s;
-    if (v.grid && phys.gridVisible) {
+    if (v.grid && phys.gridVisible && !v.compact) {
       ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
       for (let i = 0; i <= 8; i++) {
         const x = Math.round(gx0 + i * phys.pitchX * s) + 0.5, y = Math.round(gy0 + i * phys.pitchY * s) + 0.5;
@@ -220,6 +241,7 @@ export function drawMatrix(ctx: CanvasRenderingContext2D, W: number, H: number, 
         const px = Math.round(gx0 + (c + 0.5) * phys.pitchX * s);
         const py = Math.round(gy0 + (r + 0.5) * phys.pitchY * s);
         const lit = grids[m][r][c];
+        if (!lit && v.compact) continue; // lights-only: unlit LEDs are fully transparent
         if (lit) {
           ctx.shadowColor = phys.ledColor; ctx.shadowBlur = ledR * 1.4 * mf.brightness; ctx.fillStyle = on;
         } else {
@@ -231,8 +253,8 @@ export function drawMatrix(ctx: CanvasRenderingContext2D, W: number, H: number, 
         if (!lit) { ctx.strokeStyle = '#242a32'; ctx.lineWidth = 1; if (phys.ledShape === 'round') { ctx.beginPath(); ctx.arc(px, py, ledR, 0, Math.PI * 2); ctx.stroke(); } }
       }
     }
-    ctx.fillStyle = '#6b7684'; ctx.font = '10px ui-monospace, monospace'; ctx.textAlign = 'center';
-    ctx.fillText(m === 0 ? 'LEFT 8×8' : 'RIGHT 8×8', mx + mw / 2, my + mh + 14);
+    if (!v.compact) ctx.fillStyle = '#6b7684'; ctx.font = '10px ui-monospace, monospace'; ctx.textAlign = 'center';
+    if (!v.compact) ctx.fillText(m === 0 ? 'LEFT 8×8' : 'RIGHT 8×8', mx + mw / 2, my + mh + 14);
   }
 
   if (phys.dimensions) {

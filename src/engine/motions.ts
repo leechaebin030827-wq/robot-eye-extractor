@@ -88,6 +88,63 @@ export const MOTION_LIBRARY: MotionDef[] = [
     defaults: d(3200) },
 ];
 
+function circle(start: number, end: number, n: number, rx: number, ry: number, ccw = false): { gx: ChanKeys; gy: ChanKeys } {
+  const gx: ChanKeys = [[0, null]], gy: ChanKeys = [[0, null]];
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * Math.PI * 2 * (ccw ? -1 : 1);
+    const t = start + ((end - start) * i) / n;
+    gx.push([t, Math.sin(a) * rx]); gy.push([t, -Math.cos(a) * ry * 0.7 + 0.0]);
+  }
+  gx.push([1, null]); gy.push([1, null]);
+  return { gx, gy };
+}
+const wobble = (amp: number, n: number, start = 0.05, end = 0.95): ChanKeys => {
+  const k: ChanKeys = [[0, null]];
+  for (let i = 0; i < n; i++) k.push([start + ((end - start) * i) / (n - 1), i % 2 === 0 ? -amp : amp]);
+  k.push([1, null]);
+  return k;
+};
+const hold = (v: number, a = 0.2, b = 0.8, start = 0): ChanKeys => [[0, start === 0 ? null : start], [a, v], [b, v], [1, null]];
+const mw = (a = 0.2, b = 0.85): ChanKeys => [[0, 0], [a, 1], [b, 1], [1, 0]];
+const blinkAt = (t: number, w = 0.07): ChanKeys => [[0, 0], [t - w, 0], [t, 1], [t + w, 0], [1, 0]];
+const circ = circle(0.1, 0.9, 16, 0.85, 0.9);
+const circR = circle(0.1, 0.9, 16, 0.85, 0.9, true);
+
+MOTION_LIBRARY.push(
+  { id: 'nod', label: '끄덕임', desc: 'Nod yes', channels: { gy: [[0, null], [0.2, 0.55], [0.4, 0], [0.6, 0.55], [0.8, 0], [1, null]] }, defaults: d(1200) },
+  { id: 'shakeNo', label: '아니요', desc: 'Shake no', channels: { gx: wobble(0.6, 6) }, defaults: d(1300) },
+  { id: 'surprise', label: '놀람', desc: 'Wide-eyed surprise', mood: 'surprised', channels: { mw: mw(0.1, 0.85), op: [[0, 1], [0.1, 1.15], [0.8, 1.15], [1, 1]], gy: [[0, null], [0.1, -0.25], [0.8, -0.25], [1, null]] }, defaults: d(1600, { easing: 'easeOut' }) },
+  { id: 'cry', label: '울먹임', desc: 'Welling up', mood: 'sad', channels: { mw: mw(0.2, 0.9), gy: hold(0.4, 0.25, 0.85), gx: wobble(0.06, 8), bl: [[0, 0], [0.4, 0], [0.5, 0.5], [0.6, 0], [1, 0]], br: [[0, 0], [0.4, 0], [0.5, 0.5], [0.6, 0], [1, 0]] }, defaults: d(3000) },
+  { id: 'shy', label: '수줍음', desc: 'Look away shyly', mood: 'shy', channels: { mw: mw(0.2, 0.85), gx: hold(0.7, 0.25, 0.75), gy: hold(0.35, 0.25, 0.75), bl: blinkAt(0.5, 0.1), br: blinkAt(0.5, 0.1) }, defaults: d(2600) },
+  { id: 'proud', label: '우쭐', desc: 'Chin-up smug look', mood: 'smug', channels: { mw: mw(0.2, 0.85), gy: hold(-0.35, 0.25, 0.8), gx: hold(0, 0.25, 0.8) }, defaults: d(2400) },
+  { id: 'thinking', label: '생각 중', desc: 'Look up and aside, thinking', mood: 'attentive', channels: { mw: mw(0.2, 0.85), gx: hold(0.55, 0.2, 0.8), gy: hold(-0.6, 0.2, 0.8), bl: blinkAt(0.55) , br: blinkAt(0.55) }, defaults: d(3000) },
+  { id: 'excited', label: '신남', desc: 'Bouncy and bright', mood: 'excited', channels: { mw: mw(0.12, 0.88), gy: bob(0.1, 0.9, 12, 0.22, -0.3) }, defaults: d(2000) },
+  { id: 'yawn', label: '하품', desc: 'Sleepy yawn', mood: 'sleepy', channels: { mw: mw(0.25, 0.8), bl: [[0, 0], [0.3, 0.5], [0.5, 1], [0.7, 1], [1, 0]], br: [[0, 0], [0.3, 0.5], [0.5, 1], [0.7, 1], [1, 0]], gy: [[0, null], [0.3, -0.25], [0.7, 0.1], [1, null]] }, defaults: d(2600) },
+  { id: 'squint', label: '찡그림', desc: 'Squint and glare', mood: 'irritated', channels: { mw: mw(0.15, 0.85), gx: hold(0, 0.2, 0.85) }, defaults: d(1800) },
+  { id: 'glare', label: '노려보기', desc: 'Angry stare', mood: 'angry', channels: { mw: mw(0.15, 0.9), gx: hold(0, 0.2, 0.9), gy: hold(0.05, 0.2, 0.9) }, defaults: d(2200) },
+  { id: 'happyWink', label: '윙크 (웃음)', desc: 'Smiling wink', mood: 'happy', channels: { mw: mw(0.15, 0.85), bl: [[0, 0], [0.35, 0], [0.45, 1], [0.7, 1], [0.8, 0], [1, 0]] }, defaults: d(1500) },
+  { id: 'rollEyes', label: '눈 굴리기', desc: 'Roll eyes clockwise', mood: 'bored', channels: { gx: circ.gx, gy: circ.gy, mw: mw(0.1, 0.9) }, defaults: d(2400) },
+  { id: 'rollEyesBack', label: '눈 굴리기 ↺', desc: 'Roll eyes counter-clockwise', channels: { gx: circR.gx, gy: circR.gy }, defaults: d(2400) },
+  { id: 'sideGlance', label: '곁눈질', desc: 'Suspicious sideways glance', mood: 'suspicious', channels: { mw: mw(0.15, 0.85), gx: hold(0.9, 0.2, 0.8), gy: hold(0.05, 0.2, 0.8) }, defaults: d(2200) },
+  { id: 'peek', label: '살짝 엿보기', desc: 'Quick peek and back', channels: { gx: [[0, null], [0.18, 0.9], [0.4, 0.9], [0.55, null], [1, null]], bl: blinkAt(0.7), br: blinkAt(0.7) }, defaults: d(1600) },
+  { id: 'tripleBlink', label: '연속 깜빡', desc: 'Three quick blinks', channels: { bl: [[0, 0], [0.08, 1], [0.16, 0], [0.34, 0], [0.42, 1], [0.5, 0], [0.68, 0], [0.76, 1], [0.84, 0], [1, 0]], br: [[0, 0], [0.08, 1], [0.16, 0], [0.34, 0], [0.42, 1], [0.5, 0], [0.68, 0], [0.76, 1], [0.84, 0], [1, 0]] }, defaults: d(1100, { transition: 0 }) },
+  { id: 'closeEyes', label: '눈 감기', desc: 'Close eyes for a moment', channels: { bl: [[0, 0], [0.25, 1], [0.75, 1], [1, 0]], br: [[0, 0], [0.25, 1], [0.75, 1], [1, 0]] }, defaults: d(1800) },
+  { id: 'sleepyBlink', label: '졸린 깜빡임', desc: 'Slow drowsy blinks', mood: 'sleepy', channels: { mw: mw(0.1, 0.9), bl: [[0, 0], [0.2, 0.9], [0.3, 0.2], [0.55, 0.2], [0.7, 1], [0.85, 0.4], [1, 0]], br: [[0, 0], [0.2, 0.9], [0.3, 0.2], [0.55, 0.2], [0.7, 1], [0.85, 0.4], [1, 0]] }, defaults: d(2600) },
+  { id: 'worry', label: '걱정', desc: 'Anxious trembling gaze', mood: 'worried', channels: { mw: mw(0.15, 0.9), gx: wobble(0.14, 12, 0.15, 0.85), gy: hold(0.1, 0.2, 0.85) }, defaults: d(2400) },
+  { id: 'sweep', label: '훑어보기 ▶', desc: 'Scan left to right', channels: { gx: [[0, null], [0.15, -0.9], [0.85, 0.9], [1, null]] }, defaults: d(2400) },
+  { id: 'sweepBack', label: '훑어보기 ◀', desc: 'Scan right to left', channels: { gx: [[0, null], [0.15, 0.9], [0.85, -0.9], [1, null]] }, defaults: d(2400) },
+  { id: 'scanVertical', label: '위아래 훑기', desc: 'Scan up and down', channels: { gy: [[0, null], [0.15, -0.9], [0.5, 0.9], [0.85, -0.2], [1, null]] }, defaults: d(2200) },
+  { id: 'upLeft', label: '왼쪽 위 보기', desc: 'Look up-left', channels: { gx: hold(-0.9, 0.25, 0.7), gy: hold(-0.8, 0.25, 0.7) }, defaults: d(1500) },
+  { id: 'upRight', label: '오른쪽 위 보기', desc: 'Look up-right', channels: { gx: hold(0.9, 0.25, 0.7), gy: hold(-0.8, 0.25, 0.7) }, defaults: d(1500) },
+  { id: 'downLeft', label: '왼쪽 아래 보기', desc: 'Look down-left', channels: { gx: hold(-0.9, 0.25, 0.7), gy: hold(0.8, 0.25, 0.7) }, defaults: d(1500) },
+  { id: 'downRight', label: '오른쪽 아래 보기', desc: 'Look down-right', channels: { gx: hold(0.9, 0.25, 0.7), gy: hold(0.8, 0.25, 0.7) }, defaults: d(1500) },
+  { id: 'focusStare', label: '정면 응시', desc: 'Steady focused stare ahead', mood: 'attentive', channels: { mw: mw(0.2, 0.85), gx: hold(0, 0.2, 0.9), gy: hold(0, 0.2, 0.9) }, defaults: d(3000) },
+  { id: 'glanceLeftQuick', label: '왼쪽 힐끗', desc: 'Quick glance left', channels: { gx: [[0, null], [0.12, -0.95], [0.3, -0.95], [0.42, null], [1, null]] }, defaults: d(1000) },
+  { id: 'glanceRightQuick', label: '오른쪽 힐끗', desc: 'Quick glance right', channels: { gx: [[0, null], [0.12, 0.95], [0.3, 0.95], [0.42, null], [1, null]] }, defaults: d(1000) },
+  { id: 'lookDownSad', label: '고개 숙임', desc: 'Lower gaze, downcast', mood: 'sad', channels: { mw: mw(0.2, 0.85), gy: hold(0.7, 0.25, 0.8), gx: hold(0, 0.25, 0.8) }, defaults: d(2400) },
+  { id: 'joyBounce', label: '기쁨 반짝', desc: 'Happy sparkle', mood: 'happy', channels: { mw: mw(0.12, 0.88), op: [[0, 1], [0.2, 1.1], [0.35, 1], [0.5, 1.1], [0.65, 1], [1, 1]], gy: bob(0.1, 0.8, 6, -0.1, -0.35) }, defaults: d(1800) },
+);
+
 export const MOTION_BY_ID: Record<string, MotionDef> = Object.fromEntries(MOTION_LIBRARY.map((m) => [m.id, m]));
 
 export const defaultMotionSettings = (id: string): MotionSettings => ({ ...(MOTION_BY_ID[id]?.defaults ?? d(1000)) });

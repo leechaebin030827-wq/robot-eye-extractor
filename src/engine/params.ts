@@ -101,7 +101,7 @@ export const MATRIX_SPECS: Record<string, ParamSpec[]> = {
   'Pixel Size': [
     S('leftW', 'Left Eye Pixel Width', 1, 8, 1, 4, 'px'),
     S('rightW', 'Right Eye Pixel Width', 1, 8, 1, 4, 'px'),
-    S('eyeH', 'Eye Pixel Height', 1, 8, 1, 5, 'px'),
+    S('eyeH', 'Eye Pixel Height', 1, 8, 1, 4, 'px'),
     S('asymmetry', 'Asymmetry (R height Δ)', -3, 3, 1, 0, 'px'),
     S('corner', 'Pixel Corner Simulation', 0, 2, 1, 1),
   ],
@@ -131,7 +131,7 @@ export const PHYSICAL_SPECS: ParamSpec[] = [
 ];
 
 export const DEFAULT_MATRIX_GEOMETRY: MatrixGeometry = {
-  leftW: 4, rightW: 4, eyeH: 5, posX: 0, posY: 0, offsetL: 0, offsetR: 0,
+  leftW: 4, rightW: 4, eyeH: 4, posX: 0, posY: 0, offsetL: 0, offsetR: 0,
   upperLid: 0, lowerLid: 0, corner: 1, asymmetry: 0, brightness: 1, holdMs: 0,
   usePattern: false, editorLeft: emptyPattern(), editorRight: emptyPattern(),
 };
@@ -185,7 +185,7 @@ export const FREEFORM_SPECS: Record<string, ParamSpec[]> = {
 };
 
 export const DEFAULT_FREEFORM: FreeformGeometry = {
-  widthL: 230, widthR: 230, heightL: 280, heightR: 280, cornerRadius: 0.75, spacing: 140,
+  widthL: 190, widthR: 190, heightL: 150, heightR: 150, cornerRadius: 0.95, spacing: 150,
   rotation: 0, posX: 0, posY: 0, scale: 1, squash: 0, stretch: 0, tilt: 0, asymmetry: 0,
   upperLid: 0, lowerLid: 0, curvature: 0, morphIntensity: 1, gazeRange: 90, gazeSpeed: 3,
   springOvershoot: 0.25, eyeColor: '#D7F080', glow: 0.45,
@@ -196,7 +196,7 @@ export const DEFAULT_FREEFORM: FreeformGeometry = {
 
 export const emptyTimeline = (duration = 8000): Timeline => ({
   duration, loop: true,
-  tracks: { mood: [], gazeX: [], gazeY: [], openness: [], shape: [], blinks: [], motions: [], pixel: [], morph: [] },
+  tracks: { mood: [], gazeX: [], gazeY: [], openness: [], shape: [], blinks: [], motions: [], pixel: [], morph: [], symbols: [] },
 });
 
 export function defaultProject(): Project {

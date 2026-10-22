@@ -1,6 +1,7 @@
 import type { EyeFrame, FreeformGeometry, Side } from '../engine/types';
 import { CONTROL_POINTS } from '../engine/params';
 import { clamp, clamp01 } from '../engine/util';
+import { SYMBOLS } from './symbols';
 
 /**
  * FreeformRenderer — continuous vector eyes (no pixel grid, no 8×8 dependency).
@@ -9,9 +10,12 @@ import { clamp, clamp01 } from '../engine/util';
  * geometry operations on a densely sampled outline, so shapes truly deform (not just resize).
  */
 
+let ROUND_ITERS = 220;
+/** lower for small thumbnails (cheaper corner rounding) */
+export const setRoundQuality = (n: number) => { ROUND_ITERS = n; };
 export const WORLD_W = 1000;
 export const WORLD_H = 520;
-const DENSE_PER_SEG = 10;
+const DENSE_PER_SEG = 16;
 
 export interface EyeTransform { cx: number; cy: number; rot: number; halfW: number; halfH: number; curv: number }
 export interface EyeGeometryResult {
@@ -59,6 +63,25 @@ function smooth(pts: [number, number][], passes: number): [number, number][] {
       const a = cur[(i - 1 + n) % n], b = cur[(i + 1) % n];
       return [a[0] * 0.25 + pt[0] * 0.5 + b[0] * 0.25, a[1] * 0.25 + pt[1] * 0.5 + b[1] * 0.25] as [number, number];
     });
+  }
+  return cur;
+}
+
+/** Curvature-adaptive smoothing: sharp vertices (lid/outline intersections) are rounded strongly, flat parts barely move. */
+function roundCorners(pts: [number, number][], iters: number): [number, number][] {
+  let cur = pts.map((p) => [p[0], p[1]] as [number, number]);
+  const n = cur.length;
+  for (let it = 0; it < iters; it++) {
+    const next = cur.map((p, i) => {
+      const a = cur[(i - 1 + n) % n], b = cur[(i + 1) % n];
+      const v1x = p[0] - a[0], v1y = p[1] - a[1], v2x = b[0] - p[0], v2y = b[1] - p[1];
+      const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
+      if (l1 < 1e-6 || l2 < 1e-6) return p;
+      const turn = Math.acos(clamp((v1x * v2x + v1y * v2y) / (l1 * l2), -1, 1));
+      const alpha = Math.min(0.5, (turn / 0.12) * 0.5);
+      return [p[0] + alpha * ((a[0] + b[0]) / 2 - p[0]), p[1] + alpha * ((a[1] + b[1]) / 2 - p[1])] as [number, number];
+    });
+    cur = next;
   }
   return cur;
 }
@@ -142,7 +165,7 @@ export function buildEye(side: Side, f: EyeFrame, g: FreeformGeometry): EyeGeome
     collapsed = false;
     return [ux, clamp(uy, t, b)] as [number, number];
   });
-  let poly = smooth(clipped, 2);
+  let poly = roundCorners(smooth(clipped, 3), ROUND_ITERS);
   if (collapsed || closeAmt > 0.985) {
     // fully closed → thin rounded line
     const minU = Math.min(...dense.map((p) => p[0])), maxU = Math.max(...dense.map((p) => p[0]));
@@ -176,6 +199,7 @@ export function freeformViewTransform(W: number, H: number, v: FreeformView) {
 export function drawFreeform(
   ctx: CanvasRenderingContext2D, W: number, H: number, eyes: EyeGeometryResult[], g: FreeformGeometry, v: FreeformView,
   selectedPoint?: { side: Side; index: number } | null,
+  symbol?: { id: string; w: number; t: number; closure: [number, number] },
 ) {
   ctx.fillStyle = v.bg;
   ctx.fillRect(0, 0, W, H);
@@ -192,6 +216,9 @@ export function drawFreeform(
     ctx.beginPath(); ctx.moveTo(WORLD_W / 2, 0); ctx.lineTo(WORLD_W / 2, WORLD_H); ctx.moveTo(0, WORLD_H / 2); ctx.lineTo(WORLD_W, WORLD_H / 2); ctx.stroke();
   }
 
+  const symDef = symbol ? SYMBOLS[symbol.id] : undefined;
+  const sw = symDef && symbol ? clamp01(symbol.w) : 0;
+  ctx.globalAlpha = 1 - sw;
   for (const eye of eyes) {
     ctx.beginPath();
     eye.outline.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
@@ -201,6 +228,23 @@ export function drawFreeform(
     ctx.fillStyle = g.eyeColor;
     ctx.fill();
     ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+  if (symDef && symbol && sw > 0) {
+    for (const eye of eyes) {
+      const tf = eye.tf;
+      const cl = eye.side === 'L' ? symbol.closure[0] : symbol.closure[1];
+      const pulse = symDef.pulse ? 1 + 0.07 * Math.sin((symbol.t / 1000) * 9) : 1;
+      const sc = Math.min(tf.halfW, tf.halfH) * 1.08 * pulse;
+      ctx.save();
+      ctx.globalAlpha = sw;
+      ctx.translate(tf.cx, tf.cy); ctx.rotate(tf.rot);
+      ctx.scale(sc, sc * Math.max(0.05, 1 - cl));
+      ctx.fillStyle = g.eyeColor; ctx.strokeStyle = g.eyeColor;
+      ctx.shadowColor = g.eyeColor; ctx.shadowBlur = g.glow * 60 * s;
+      symDef.draw(ctx, eye.side);
+      ctx.restore();
+    }
   }
   if (v.showOutline) {
     ctx.lineWidth = 1.5 / s;

@@ -5,6 +5,7 @@ export type Side = 'L' | 'R';
 
 export const MOOD_IDS = [
   'default', 'happy', 'tired', 'angry', 'calm', 'curious', 'attentive', 'reassuring', 'sleepy',
+  'surprised', 'sad', 'worried', 'irritated', 'smug', 'excited', 'shy', 'bored', 'suspicious',
 ] as const;
 export type MoodId = (typeof MOOD_IDS)[number];
 
@@ -68,6 +69,9 @@ export interface MatrixGeometry {
   brightness: number; // 0..1 preview brightness metadata
   holdMs: number;
   usePattern: boolean;
+  /** user-designed default eye (bounding box is used as the base shape; lids/moods still apply) */
+  customL?: Pattern | null;
+  customR?: Pattern | null;
   editorLeft: Pattern;
   editorRight: Pattern;
 }
@@ -164,6 +168,7 @@ export interface MotionEvent extends KeyBase {
   dirX: number;
   dirY: number;
 }
+export interface SymbolEvent extends KeyBase { symbol: string; duration: number; fade: number }
 export interface PixelKey extends KeyBase { left: Pattern; right: Pattern }
 export interface MorphKey extends KeyBase { L: number[]; R: number[]; ease: Ease }
 
@@ -177,6 +182,7 @@ export interface Tracks {
   motions: MotionEvent[];
   pixel: PixelKey[];
   morph: MorphKey[];
+  symbols: SymbolEvent[];
 }
 export type TrackName = keyof Tracks;
 
@@ -228,6 +234,8 @@ export interface EyeFrame {
   flickerY: number;
   pattern?: PatternPair; // pixel-track output (consumed by Matrix only)
   morph?: { L: number[]; R: number[] }; // morph-track output (consumed by Freeform only)
+  /** emoji-style eye currently shown (w = 0..1 cross-fade weight) */
+  symbol?: { id: string; w: number };
   activeMotions: string[];
   autoBlinking: boolean;
   /** values after tracks / static params but before motion & idle layers */

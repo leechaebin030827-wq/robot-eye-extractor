@@ -302,6 +302,14 @@ export function evaluateEye(project: Project, tMs: number, mode: Mode = project.
   }
 
   const tr = timeline.tracks;
+  let symbol: EyeFrame['symbol'];
+  for (const ev of tr.symbols ?? []) {
+    const lt = t - ev.t;
+    if (lt < 0 || lt > ev.duration) continue;
+    const fade = Math.max(1, Math.min(ev.fade, ev.duration / 2));
+    const w = smoothstep(Math.min(lt / fade, (ev.duration - lt) / fade, 1));
+    if (!symbol || w >= symbol.w) symbol = { id: ev.symbol, w };
+  }
   const pattern = mode === 'matrix' ? evalPixel(tr.pixel, t) : undefined;
   const morph = mode === 'freeform' ? evalMorph(tr.morph, t) : undefined;
 
@@ -310,7 +318,7 @@ export function evaluateEye(project: Project, tMs: number, mode: Mode = project.
     openness: clamp(c.open + c.mood.op, 0, 1.2),
     closureL: clamp01(c.clL), closureR: clamp01(c.clR),
     mood: c.mood, moodLabel: c.moodLabel, shape: c.shape, curiosity: c.curiosity,
-    flickerX: c.flickerX, flickerY: c.flickerY, pattern, morph,
+    flickerX: c.flickerX, flickerY: c.flickerY, pattern, morph, symbol,
     activeMotions: c.active, autoBlinking: c.autoBlinking, base: c.base,
   };
 }

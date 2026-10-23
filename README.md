@@ -29,4 +29,10 @@ src/studio/draw.ts       한 프레임 그리기 (매트릭스 / 자유형 공�
 src/studio/exportMp4.ts  MP4 인코딩
 src/engine, src/render   눈 상태 계산 · 8×8 / 벡터 렌더러
 ```
+## 내보내기 형식
+* **MP4 · 배경색**: 선택한 배경색이 들어간 일반 MP4 (H.264, 30 fps).
+* **MP4 · 투명(알파 매트)**: H.264 MP4는 알파 채널을 담을 수 없어서, 가로 2배 영상으로 **왼쪽 = 색, 오른쪽 = 알파 매트(흰색=불투명)** 를 나란히 담습니다. 편집툴의 매트/키 기능이나 셰이더로 합성하세요.
+* **PNG 시퀀스 · 투명**: 진짜 투명 PNG 프레임을 ZIP으로 (After Effects, Premiere, Final Cut, DaVinci 등에서 바로 사용).
+* **현재 프레임 PNG**: 지금 재생선이 있는 한 장을 PNG로 저장 (투명 / 배경색 두 가지).
+
 MP4 내보내기는 WebCodecs를 지원하는 최신 Chrome / Edge / Safari 필요.

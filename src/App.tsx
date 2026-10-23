@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ASSETS, ASSET_BY_ID, buildProject, defaultSequence, newBlock, totalMs, type Asset, type Sequence } from './studio/assets';
 import { drawAt } from './studio/draw';
-import { exportMp4, mp4Supported } from './studio/exportMp4';
+import { exportVideo, isTransparentKind, mp4Supported, type ExportKind } from './studio/exportMp4';
 import { EyeEditor } from './studio/EyeEditor';
 import { isValidPattern } from './engine/patterns';
 import { presetEyePattern } from './studio/assets';
@@ -130,6 +130,7 @@ export function App() {
   const [exportState, setExportState] = useState<null | { p: number }>(null);
   const [exportErr, setExportErr] = useState<string | null>(null);
   const [res, setRes] = useState('1280x720');
+  const [kind, setKind] = useState<ExportKind>('mp4');
   const [preview, setPreview] = useState<Asset | null>(null);
   const [editEye, setEditEye] = useState(false);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
@@ -149,7 +150,7 @@ export function App() {
   const pvRef = useRef<{ project: ReturnType<typeof buildProject> | null; t: number }>({ project: null, t: 0 });
   if (pvRef.current.project !== previewProject) pvRef.current = { project: previewProject, t: 0 };
   const bgRef = useRef(seq.bg);
-  bgRef.current = seq.bg;
+  bgRef.current = isTransparentKind(kind) ? 'transparent' : seq.bg;
   const tRef = useRef(0);
   const playRef = useRef(playing);
   playRef.current = playing;
@@ -342,14 +343,14 @@ export function App() {
 
   const doExport = async () => {
     setExportErr(null);
-    if (!mp4Supported()) { setExportErr('이 브라우저는 MP4 내보내기를 지원하지 않습니다. 최신 Chrome / Edge / Safari 를 사용하세요.'); return; }
+    if (kind !== 'png' && kind !== 'frame' && kind !== 'frameBg' && !mp4Supported()) { setExportErr('이 브라우저는 MP4 내보내기를 지원하지 않습니다. 최신 Chrome / Edge / Safari 를 사용하세요.'); return; }
     const [w, h] = res.split('x').map(Number);
     cancel.current = { cancelled: false };
     setExportState({ p: 0 });
     try {
-      const blob = await exportMp4(projectRef.current, { width: w, height: h, fps: 30, bg: seq.bg }, (p) => setExportState({ p }), cancel.current);
+      const { blob, filename } = await exportVideo(projectRef.current, { width: w, height: h, fps: 30, bg: seq.bg, kind, t: tRef.current }, (p) => setExportState({ p }), cancel.current);
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'robot-eyes.mp4'; document.body.appendChild(a); a.click(); a.remove();
+      const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     } catch (e) { if ((e as Error).message !== '취소됨') setExportErr((e as Error).message); }
     setExportState(null);
@@ -404,13 +405,20 @@ export function App() {
             )}
           </div>
           <label className="swatch" title="눈 색상"><input type="color" value={seq.eyeColor} onChange={(e) => update((s) => ({ ...s, eyeColor: e.target.value }))} /><span>눈</span></label>
-          <label className="swatch" title="배경 색상"><input type="color" value={seq.bg} onChange={(e) => update((s) => ({ ...s, bg: e.target.value }))} /><span>배경</span></label>
+          <label className={`swatch${isTransparentKind(kind) ? ' off' : ''}`} title={isTransparentKind(kind) ? '투명 내보내기에서는 배경색이 쓰이지 않아요' : '배경 색상'}><input type="color" value={seq.bg} onChange={(e) => update((s) => ({ ...s, bg: e.target.value }))} /><span>배경</span></label>
         </div>
         <span className="grow" />
         <select value={res} onChange={(e) => setRes(e.target.value)} title="영상 크기">
           <option value="1280x720">1280×720</option><option value="1920x1080">1920×1080</option><option value="1080x1080">1080×1080</option><option value="800x480">800×480</option>
         </select>
-        <button className="primary export" onClick={doExport} disabled={!!exportState || empty}><Icon name="export" size={15} /> MP4 내보내기</button>
+        <select value={kind} onChange={(e) => setKind(e.target.value as ExportKind)} title="내보내기 형식">
+          <option value="mp4">MP4 · 배경색</option>
+          <option value="stacked">MP4 · 투명(알파 매트)</option>
+          <option value="png">PNG 시퀀스 · 투명</option>
+          <option value="frame">현재 프레임 PNG · 투명</option>
+          <option value="frameBg">현재 프레임 PNG · 배경색</option>
+        </select>
+        <button className="primary export" onClick={doExport} disabled={!!exportState || empty}><Icon name="export" size={15} /> 내보내기</button>
       </header>
 
       <aside>
@@ -437,7 +445,7 @@ export function App() {
       </aside>
 
       <main>
-        <div className={`stage${preview ? ` previewing ${preview.group}` : ''}`} ref={wrapRef}>
+        <div className={`stage${isTransparentKind(kind) ? ' checker' : ''}${preview ? ` previewing ${preview.group}` : ''}`} ref={wrapRef}>
           <canvas ref={canvasRef} />
           {preview && (
             <div className="pvbar">
@@ -533,7 +541,7 @@ export function App() {
           <div className="dialog">
             {exportState ? (
               <>
-                <b>MP4 만드는 중… {Math.round(exportState.p * 100)}%</b>
+                <b>{kind === 'png' ? 'PNG 시퀀스' : 'MP4'} 만드는 중… {Math.round(exportState.p * 100)}%</b>
                 <div className="bar"><i style={{ width: `${exportState.p * 100}%` }} /></div>
                 <button onClick={() => { cancel.current.cancelled = true; }}>취소</button>
               </>

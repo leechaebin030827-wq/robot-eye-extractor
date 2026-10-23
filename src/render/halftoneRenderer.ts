@@ -25,8 +25,7 @@ export function drawHalftone(
     return data[(iy * mw + ix) * 4] / 255;
   };
 
-  ctx.fillStyle = v.bg;
-  ctx.fillRect(0, 0, W, H);
+  if (v.bg === 'transparent') ctx.clearRect(0, 0, W, H); else { ctx.fillStyle = v.bg; ctx.fillRect(0, 0, W, H); }
   const { s } = freeformViewTransform(W, H, v);
   ctx.fillStyle = g.eyeColor;
 

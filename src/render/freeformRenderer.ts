@@ -232,8 +232,7 @@ export function drawFreeform(
   selectedPoint?: { side: Side; index: number } | null,
   symbol?: { id: string; w: number; t: number; closure: [number, number] },
 ) {
-  ctx.fillStyle = v.bg;
-  ctx.fillRect(0, 0, W, H);
+  if (v.bg === 'transparent') ctx.clearRect(0, 0, W, H); else { ctx.fillStyle = v.bg; ctx.fillRect(0, 0, W, H); }
   const { s, ox, oy } = freeformViewTransform(W, H, v);
   ctx.save();
   ctx.translate(ox, oy);

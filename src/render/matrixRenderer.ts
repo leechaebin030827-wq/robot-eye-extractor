@@ -182,8 +182,7 @@ function arrowV(ctx: CanvasRenderingContext2D, x: number, y1: number, y2: number
 }
 
 export function drawMatrix(ctx: CanvasRenderingContext2D, W: number, H: number, mf: MatrixFrame, phys: MatrixPhysical, v: MatrixView) {
-  ctx.fillStyle = v.bg;
-  ctx.fillRect(0, 0, W, H);
+  if (v.bg === 'transparent') ctx.clearRect(0, 0, W, H); else { ctx.fillStyle = v.bg; ctx.fillRect(0, 0, W, H); }
   const L = matrixLayout(phys, W, H, v);
   const s = L.scale;
   const gridW = 8 * phys.pitchX, gridH = 8 * phys.pitchY;

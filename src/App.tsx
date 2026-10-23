@@ -452,21 +452,19 @@ export function App() {
           <button className="playbtn" onClick={() => { setPreview(null); setPlaying(!playing); }} title={playing ? '정지 (Space)' : '재생 (Space)'}><Icon name={playing && !preview ? 'pause' : 'play'} size={18} /></button>
           <span className="time">{preview ? '미리보기 중' : `${fmt(time)} / ${fmt(total)}`}</span>
           <span className="grow" />
-          <label className="slider">눈 간격
+        </div>
+        <div className="knobs">
+          <label className="knob"><span className="kh"><span>눈 간격</span><b>{seq.spacing}%</b></span>
             <input type="range" min={30} max={250} step={5} value={seq.spacing} onChange={(e) => update((s) => ({ ...s, spacing: Number(e.target.value) }))} />
-            <span className="val">{seq.spacing}%</span>
           </label>
-          <label className="slider" title="모서리 둥글기 — 0% 네모 · 100% 완전히 둥글게 (LED는 네모/둥근 두 단계)">모서리 둥글기
+          <label className="knob" title="모서리 둥글기 — 0% 네모 · 100% 완전히 둥글게 (LED는 네모/둥근 두 단계)"><span className="kh"><span>모서리 둥글기</span><b>{seq.roundness}%</b></span>
             <input type="range" min={0} max={100} step={5} value={seq.roundness} onChange={(e) => update((s) => ({ ...s, roundness: Number(e.target.value) }))} />
-            <span className="val">{seq.roundness}%</span>
           </label>
-          <label className="slider" title="빛이 번지는 정도">빛 번짐
+          <label className="knob" title="빛이 번지는 정도"><span className="kh"><span>빛 번짐</span><b>{seq.glow}%</b></span>
             <input type="range" min={0} max={250} step={5} value={seq.glow} onChange={(e) => update((s) => ({ ...s, glow: Number(e.target.value) }))} />
-            <span className="val">{seq.glow}%</span>
           </label>
-          <label className="slider" title="블록이 이어질 때 감정이 섞이는 시간">연결 부드러움
+          <label className="knob" title="블록이 이어질 때 감정이 섞이는 시간"><span className="kh"><span>연결 부드러움</span><b>{seq.blend}ms</b></span>
             <input type="range" min={0} max={1000} step={25} value={seq.blend} onChange={(e) => update((s) => ({ ...s, blend: Number(e.target.value) }))} />
-            <span className="val">{seq.blend}ms</span>
           </label>
         </div>
       </main>

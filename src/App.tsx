@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ASSETS, ASSET_BY_ID, buildProject, defaultSequence, newBlock, totalMs, type Asset, type Sequence } from './studio/assets';
 import { drawAt } from './studio/draw';
-import { exportVideo, isTransparentKind, mp4Supported, type ExportKind } from './studio/exportMp4';
+import { exportVideo, mp4Supported, type ExportKind } from './studio/exportMp4';
+import { exportAlphaVideo } from './studio/exportAlpha';
 import { EyeEditor } from './studio/EyeEditor';
 import { isValidPattern } from './engine/patterns';
 import { presetEyePattern } from './studio/assets';
@@ -18,7 +19,7 @@ function load(): Sequence {
     if (o && Array.isArray(o.blocks)) {
       const blocks = o.blocks.filter((b: { assetId?: string; seconds?: number }) => b && ASSET_BY_ID[b.assetId ?? ''] && Number.isFinite(b.seconds))
         .map((b: { id: string; assetId: string; seconds: number }) => ({ id: String(b.id), assetId: b.assetId, seconds: Math.min(60, Math.max(0.1, b.seconds)) }));
-      return { blocks, blend: Number.isFinite(o.blend) ? Math.min(1200, Math.max(0, o.blend)) : 450, eyeColor: o.bg === undefined ? '#FFFFFF' : hex(o.eyeColor, '#FFFFFF'), bg: hex(o.bg, '#000000'), mode: ['freeform', 'halftone', 'halftoneGrid'].includes(o.mode) ? o.mode : 'matrix', shape: o.shape === 'long' ? 'long' : 'round', spacing: Number.isFinite(o.spacing) ? Math.min(250, Math.max(30, o.spacing)) : 115, custom: o.custom && isValidPattern(o.custom.left) && isValidPattern(o.custom.right) ? { left: o.custom.left, right: o.custom.right } : null, useCustom: o.useCustom === true && !!o.custom, glow: Number.isFinite(o.glow) ? Math.min(250, Math.max(0, o.glow)) : 100, roundness: Number.isFinite(o.roundness) ? Math.min(100, Math.max(0, o.roundness)) : 100 };
+      return { blocks, blend: Number.isFinite(o.blend) ? Math.min(1200, Math.max(0, o.blend)) : 450, eyeColor: o.bg === undefined ? '#FFFFFF' : hex(o.eyeColor, '#FFFFFF'), bg: hex(o.bg, '#000000'), mode: ['freeform', 'halftone', 'halftoneGrid'].includes(o.mode) ? o.mode : 'matrix', shape: o.shape === 'long' ? 'long' : 'round', spacing: Number.isFinite(o.spacing) ? Math.min(250, Math.max(30, o.spacing)) : 115, custom: o.custom && isValidPattern(o.custom.left) && isValidPattern(o.custom.right) ? { left: o.custom.left, right: o.custom.right } : null, useCustom: o.useCustom === true && !!o.custom, glow: Number.isFinite(o.glow) ? Math.min(250, Math.max(0, o.glow)) : 100, roundness: Number.isFinite(o.roundness) ? Math.min(100, Math.max(0, o.roundness)) : 100, transparent: o.transparent === true };
     }
   } catch { /* fall through */ }
   return defaultSequence();
@@ -42,7 +43,7 @@ function Thumb({ asset, base, aspect }: { asset: Asset; base: Sequence; aspect: 
     const W = 120, H = Math.round(120 / aspect), dpr = 2;
     c.width = W * dpr; c.height = H * dpr;
     const ctx = c.getContext('2d')!;
-    const seq: Sequence = { blocks: [newBlock('mood-default'), { id: 'x', assetId: asset.id, seconds: asset.seconds }], blend: 300, eyeColor, bg, mode, shape, spacing: 115, custom, useCustom, glow: base.glow, roundness: base.roundness };
+    const seq: Sequence = { blocks: [newBlock('mood-default'), { id: 'x', assetId: asset.id, seconds: asset.seconds }], blend: 300, eyeColor, bg, mode, shape, spacing: 115, custom, useCustom, glow: base.glow, roundness: base.roundness, transparent: false };
     const p = buildProject(seq);
     p.shared.autoBlink = false; p.shared.idle = false; p.shared.microSaccade = 0;
     const from = 3000 - 500, span = 500 + Math.min(asset.seconds * 1000, 3200) + 400;
@@ -127,10 +128,10 @@ export function App() {
   const [marquee, setMarquee] = useState<null | { x0: number; y0: number; x1: number; y1: number }>(null);
   const [playing, setPlaying] = useState(true);
   const [time, setTime] = useState(0);
-  const [exportState, setExportState] = useState<null | { p: number }>(null);
+  const [exportState, setExportState] = useState<null | { p: number; label?: string }>(null);
   const [exportErr, setExportErr] = useState<string | null>(null);
   const [res, setRes] = useState('1280x720');
-  const [kind, setKind] = useState<ExportKind>('mp4');
+  const [kind, setKind] = useState<ExportKind | 'webm' | 'mov'>('mp4');
   const [preview, setPreview] = useState<Asset | null>(null);
   const [editEye, setEditEye] = useState(false);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
@@ -150,7 +151,7 @@ export function App() {
   const pvRef = useRef<{ project: ReturnType<typeof buildProject> | null; t: number }>({ project: null, t: 0 });
   if (pvRef.current.project !== previewProject) pvRef.current = { project: previewProject, t: 0 };
   const bgRef = useRef(seq.bg);
-  bgRef.current = isTransparentKind(kind) ? 'transparent' : seq.bg;
+  bgRef.current = seq.transparent || kind === 'webm' || kind === 'mov' || kind === 'png' ? 'transparent' : seq.bg;
   const tRef = useRef(0);
   const playRef = useRef(playing);
   playRef.current = playing;
@@ -343,16 +344,18 @@ export function App() {
 
   const doExport = async () => {
     setExportErr(null);
-    if (kind !== 'png' && kind !== 'frame' && kind !== 'frameBg' && !mp4Supported()) { setExportErr('이 브라우저는 MP4 내보내기를 지원하지 않습니다. 최신 Chrome / Edge / Safari 를 사용하세요.'); return; }
+    if (kind === 'mp4' && !mp4Supported()) { setExportErr('이 브라우저는 MP4 내보내기를 지원하지 않습니다. 최신 Chrome / Edge / Safari 를 사용하세요.'); return; }
     const [w, h] = res.split('x').map(Number);
     cancel.current = { cancelled: false };
     setExportState({ p: 0 });
     try {
-      const { blob, filename } = await exportVideo(projectRef.current, { width: w, height: h, fps: 30, bg: seq.bg, kind, t: tRef.current }, (p) => setExportState({ p }), cancel.current);
+      const { blob, filename } = kind === 'webm' || kind === 'mov'
+        ? await exportAlphaVideo(projectRef.current, { width: w, height: h, fps: 30, format: kind }, (label, p) => setExportState({ p, label }), cancel.current)
+        : await exportVideo(projectRef.current, { width: w, height: h, fps: 30, bg: seq.bg, kind, transparent: seq.transparent || kind === 'png', t: tRef.current }, (p) => setExportState({ p }), cancel.current);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-    } catch (e) { if ((e as Error).message !== '취소됨') setExportErr((e as Error).message); }
+    } catch (e) { const msg = e instanceof Error ? e.message : String(e); if (msg !== '취소됨') setExportErr(msg || '내보내기에 실패했어요.'); }
     setExportState(null);
   };
 
@@ -405,18 +408,23 @@ export function App() {
             )}
           </div>
           <label className="swatch" title="눈 색상"><input type="color" value={seq.eyeColor} onChange={(e) => update((s) => ({ ...s, eyeColor: e.target.value }))} /><span>눈</span></label>
-          <label className={`swatch${isTransparentKind(kind) ? ' off' : ''}`} title={isTransparentKind(kind) ? '투명 내보내기에서는 배경색이 쓰이지 않아요' : '배경 색상'}><input type="color" value={seq.bg} onChange={(e) => update((s) => ({ ...s, bg: e.target.value }))} /><span>배경</span></label>
+          <div className="bgctl">
+            <label className={`swatch${seq.transparent ? ' off' : ''}`} onClick={() => { if (seq.transparent) update((s) => ({ ...s, transparent: false })); }} title={seq.transparent ? '배경색을 고르면 투명이 꺼져요' : '배경 색상'}><input type="color" value={seq.bg} onChange={(e) => update((s) => ({ ...s, bg: e.target.value, transparent: false }))} /><span>배경</span></label>
+            <button className={`tbtn${seq.transparent ? ' on' : ''}`} aria-pressed={seq.transparent} title="배경을 투명하게 — PNG로 내보낼 때 적용돼요 (MP4는 투명을 담을 수 없어요)" onClick={() => { update((s) => ({ ...s, transparent: !s.transparent })); }}>
+              <span className="chk" />투명
+            </button>
+          </div>
         </div>
         <span className="grow" />
         <select value={res} onChange={(e) => setRes(e.target.value)} title="영상 크기">
           <option value="1280x720">1280×720</option><option value="1920x1080">1920×1080</option><option value="1080x1080">1080×1080</option><option value="800x480">800×480</option>
         </select>
-        <select value={kind} onChange={(e) => setKind(e.target.value as ExportKind)} title="내보내기 형식">
-          <option value="mp4">MP4 · 배경색</option>
-          <option value="stacked">MP4 · 투명(알파 매트)</option>
-          <option value="png">PNG 시퀀스 · 투명</option>
-          <option value="frame">현재 프레임 PNG · 투명</option>
-          <option value="frameBg">현재 프레임 PNG · 배경색</option>
+        <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} title="내보내기 형식">
+          <option value="mp4">{seq.transparent ? 'MP4 (투명 불가 · 배경색으로 저장)' : 'MP4'}</option>
+          <option value="mov">투명 영상 · MOV (ProRes 4444)</option>
+          <option value="png">PNG 시퀀스 · 투명 (ZIP)</option>
+          <option value="webm">투명 영상 · WebM (알파)</option>
+          <option value="frame">PNG · 현재 프레임</option>
         </select>
         <button className="primary export" onClick={doExport} disabled={!!exportState || empty}><Icon name="export" size={15} /> 내보내기</button>
       </header>
@@ -445,7 +453,7 @@ export function App() {
       </aside>
 
       <main>
-        <div className={`stage${isTransparentKind(kind) ? ' checker' : ''}${preview ? ` previewing ${preview.group}` : ''}`} ref={wrapRef}>
+        <div className={`stage${seq.transparent || kind === 'webm' || kind === 'mov' || kind === 'png' ? ' checker' : ''}${preview ? ` previewing ${preview.group}` : ''}`} ref={wrapRef}>
           <canvas ref={canvasRef} />
           {preview && (
             <div className="pvbar">
@@ -529,7 +537,7 @@ export function App() {
           ) : <span className="hint">빈 곳을 드래그 = 여러 개 선택 · 블록 드래그 = 이동 · 양쪽 끝 = 길이 · 위/아래로 멀리 놓기 = 삭제</span>}
           <span className="grow" />
           {!empty && <button className="ghost" onClick={() => { if (confirm('모든 블록을 지울까요?')) { update((s) => ({ ...s, blocks: [] })); setSelected(null); } }}>전체 지우기</button>}
-          <button className="ghost" onClick={() => { update((s) => ({ ...defaultSequence(), eyeColor: s.eyeColor, bg: s.bg, mode: s.mode, shape: s.shape, custom: s.custom, useCustom: s.useCustom, glow: s.glow, spacing: s.spacing, roundness: s.roundness })); setSelected(null); }}>예시 불러오기</button>
+          <button className="ghost" onClick={() => { update((s) => ({ ...defaultSequence(), eyeColor: s.eyeColor, bg: s.bg, mode: s.mode, shape: s.shape, custom: s.custom, useCustom: s.useCustom, glow: s.glow, spacing: s.spacing, roundness: s.roundness, transparent: s.transparent })); setSelected(null); }}>예시 불러오기</button>
         </div>
       </footer>
 
@@ -541,8 +549,9 @@ export function App() {
           <div className="dialog">
             {exportState ? (
               <>
-                <b>{kind === 'png' ? 'PNG 시퀀스' : 'MP4'} 만드는 중… {Math.round(exportState.p * 100)}%</b>
+                <b>{exportState.label ?? 'MP4 만드는 중…'} {Math.round(exportState.p * 100)}%</b>
                 <div className="bar"><i style={{ width: `${exportState.p * 100}%` }} /></div>
+                {kind === 'mp4' && seq.transparent && <span className="muted">MP4는 투명을 담을 수 없어서 배경색({seq.bg})으로 저장돼요. 투명이 필요하면 PNG를 쓰세요.</span>}
                 <button onClick={() => { cancel.current.cancelled = true; }}>취소</button>
               </>
             ) : (

@@ -65,13 +65,13 @@ export const ASSET_BY_ID = Object.fromEntries(ASSETS.map((a) => [a.id, a]));
 
 export interface Block { id: string; assetId: string; seconds: number }
 export type Style = 'matrix' | 'freeform' | 'halftone' | 'halftoneGrid';
-export interface Sequence { blocks: Block[]; blend: number; eyeColor: string; bg: string; mode: Style; shape: 'round' | 'long'; spacing: number; custom: { left: string[]; right: string[] } | null; useCustom: boolean; glow: number; roundness: number }
+export interface Sequence { blocks: Block[]; blend: number; eyeColor: string; bg: string; mode: Style; shape: 'round' | 'long'; spacing: number; custom: { left: string[]; right: string[] } | null; useCustom: boolean; glow: number; roundness: number; transparent: boolean }
 
 export const newBlock = (assetId: string): Block => ({ id: uid('b'), assetId, seconds: ASSET_BY_ID[assetId]?.seconds ?? 2 });
 
 export const defaultSequence = (): Sequence => ({
   blocks: ['mo-wakeUp', 'mo-gentleGreeting', 'mood-calm', 'mo-curiousInspection', 'mo-passengerAttention', 'mo-reassuringBlink', 'mood-default'].map(newBlock),
-  blend: 450, eyeColor: '#FFFFFF', bg: '#000000', mode: 'matrix', shape: 'round', spacing: 115, custom: null, useCustom: false, glow: 100, roundness: 100,
+  blend: 450, eyeColor: '#FFFFFF', bg: '#000000', mode: 'matrix', shape: 'round', spacing: 115, custom: null, useCustom: false, glow: 100, roundness: 100, transparent: false,
 });
 
 export const totalMs = (s: Sequence) => Math.max(500, Math.round(s.blocks.reduce((a, b) => a + b.seconds * 1000, 0)));

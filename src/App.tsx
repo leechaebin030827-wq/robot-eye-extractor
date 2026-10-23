@@ -94,6 +94,47 @@ const HALFTONE = [[6.5, 6.5], [17.5, 6.5], [6.5, 17.5], [17.5, 17.5]].map(([x, y
 // smooth variant icon: dots that shrink toward the edge
 const HALFTONE_SMOOTH = [[12, 12, 3.3], [5.2, 12, 1.9], [18.8, 12, 1.9], [12, 5.2, 1.9], [12, 18.8, 1.9], [6.4, 6.4, 1.1], [17.6, 6.4, 1.1], [6.4, 17.6, 1.1], [17.6, 17.6, 1.1]].map(([x, y, r]) => dot(x, y, r)).join('');
 
+interface DDItem<T extends string> { value: T; label: string; desc?: string; icon?: string }
+interface DDGroup<T extends string> { title?: string; items: DDItem<T>[] }
+
+/** Dark, minimal dropdown (replaces the native <select> menu). */
+function Dropdown<T extends string>({ value, groups, onChange, title, width = 280, prefix }: { value: T; groups: DDGroup<T>[]; onChange: (v: T) => void; title?: string; width?: number; prefix?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = groups.flatMap((g) => g.items).find((i) => i.value === value);
+  useEffect(() => {
+    if (!open) return;
+    const down = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('mousedown', down); window.addEventListener('keydown', key);
+    return () => { window.removeEventListener('mousedown', down); window.removeEventListener('keydown', key); };
+  }, [open]);
+  return (
+    <div className="dd" ref={ref}>
+      <button className={`dd-btn${open ? ' open' : ''}`} title={title} onClick={() => setOpen(!open)} aria-haspopup="listbox" aria-expanded={open}>
+        {prefix && <span className="dd-prefix">{prefix}</span>}
+        <span className="dd-label">{current?.label}</span>
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden><path d="M1.5 3.5L5 7l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+      {open && (
+        <div className="dd-menu" style={{ width }} role="listbox">
+          {groups.map((g, gi) => (
+            <div key={gi}>
+              {g.title && <div className="dd-cap">{g.title}</div>}
+              {g.items.map((it) => (
+                <button key={it.value} role="option" aria-selected={it.value === value} className={`dd-item${it.value === value ? ' on' : ''}`} onClick={() => { onChange(it.value); setOpen(false); }}>
+                  <span className="dd-text"><b>{it.label}</b>{it.desc && <small>{it.desc}</small>}</span>
+                  {it.value === value && <Icon name="check" size={15} />}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const ICONS: Record<string, string> = {
   halftone: HALFTONE_SMOOTH, halftoneGrid: HALFTONE,
   play: 'M8 5v14l11-7z', pause: 'M7 5h4v14H7zM13 5h4v14h-4z', rewind: 'M6 5h2v14H6zM20 5v14L9 12z',
@@ -416,16 +457,23 @@ export function App() {
           </div>
         </div>
         <span className="grow" />
-        <select value={res} onChange={(e) => setRes(e.target.value)} title="영상 크기">
-          <option value="1280x720">1280×720</option><option value="1920x1080">1920×1080</option><option value="1080x1080">1080×1080</option><option value="800x480">800×480</option>
-        </select>
-        <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} title="내보내기 형식">
-          <option value="mp4">{seq.transparent ? 'MP4 (투명 불가 · 배경색으로 저장)' : 'MP4'}</option>
-          <option value="mov">투명 영상 · MOV (ProRes 4444)</option>
-          <option value="png">PNG 시퀀스 · 투명 (ZIP)</option>
-          <option value="webm">투명 영상 · WebM (알파)</option>
-          <option value="frame">PNG · 현재 프레임</option>
-        </select>
+        <Dropdown value={res} onChange={setRes} title="영상 크기" width={230} groups={[{ items: [
+          { value: '1280x720', label: '1280 × 720', desc: 'HD · 16:9' },
+          { value: '1920x1080', label: '1920 × 1080', desc: 'Full HD · 16:9' },
+          { value: '1080x1080', label: '1080 × 1080', desc: '정사각형 · 1:1' },
+          { value: '800x480', label: '800 × 480', desc: '소형 디스플레이 · 5:3' },
+        ] }]} />
+        <Dropdown value={kind} onChange={setKind} title="내보내기 형식" width={320} groups={[
+          { title: '영상', items: [
+            { value: 'mp4', label: 'MP4', desc: seq.transparent ? '투명은 담을 수 없어 배경색으로 저장돼요' : '가장 호환성 좋은 일반 영상 (배경색 포함)' },
+            { value: 'mov', label: 'MOV · ProRes 4444', desc: '투명 영상 · After Effects, Premiere, Final Cut용' },
+            { value: 'webm', label: 'WebM · 알파', desc: '투명 영상 · 웹과 크롬에서 바로 재생' },
+          ] },
+          { title: '이미지', items: [
+            { value: 'png', label: 'PNG 시퀀스', desc: '투명 프레임 묶음(ZIP) · 가장 안정적' },
+            { value: 'frame', label: 'PNG · 현재 프레임', desc: '지금 재생선 위치의 한 장' },
+          ] },
+        ]} />
         <button className="primary export" onClick={doExport} disabled={!!exportState || empty}><Icon name="export" size={15} /> 내보내기</button>
       </header>
 
